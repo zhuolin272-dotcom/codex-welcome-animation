@@ -1,0 +1,5 @@
+Pillow>=11.0,<13
+fonttools>=4.50,<5
+numpy>=2.0,<3
+scipy>=1.14,<2
+scikit-image>=0.24,<1

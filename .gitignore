@@ -1,0 +1,12 @@
+logs/
+browser-profile/
+browser-test-profile/
+config.json
+.codex-welcome-install
+__pycache__/
+.venv/
+node_modules/
+.hyperframes/
+.DS_Store
+*.log
+*.lnk
