@@ -10,14 +10,14 @@ if ($CodexPath -and -not (Test-Path -LiteralPath $CodexPath -PathType Leaf)) { t
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 foreach ($folder in @('docs','launcher','assets')) { Copy-Item -LiteralPath (Join-Path $source $folder) -Destination $destination -Recurse -Force }
 Copy-Item -LiteralPath (Join-Path $source 'Uninstall.ps1') -Destination $destination -Force
-foreach ($required in @('launcher\Launch.ps1','docs\animation.html','docs\vendor\gsap.min.js','assets\app.ico')) {
+foreach ($required in @('launcher\Launch.ps1','docs\animation.html','docs\vendor\gsap.min.js','assets\openai-transparent.ico')) {
     if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) { throw "Installation is incomplete: $required" }
 }
 Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
 $bootstrap=Join-Path $destination 'CodexWelcome.exe'
-& $compiler /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll ('/win32icon:'+(Join-Path $destination 'assets\app.ico')) ('/out:'+$bootstrap) (Join-Path $destination 'launcher\Bootstrap.cs')
+& $compiler /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll ('/win32icon:'+(Join-Path $destination 'assets\openai-transparent.ico')) ('/out:'+$bootstrap) (Join-Path $destination 'launcher\Bootstrap.cs')
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $bootstrap)) { throw 'Could not build the native Windows launcher.' }
 if ($CodexPath) { @{CodexPath=[IO.Path]::GetFullPath($CodexPath)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $destination 'config.json') -Encoding UTF8 }
 $validation = & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $destination 'launcher\Launch.ps1') -ValidateOnly
@@ -43,7 +43,7 @@ foreach($location in $locations) {
         $variant=if($i -eq 0){'fast'}else{'full'}
         $link.Arguments=$variant
         $link.WorkingDirectory=$destination
-        $link.IconLocation=(Join-Path $destination 'assets\app.ico')+',0'
+        $link.IconLocation=(Join-Path $destination 'assets\openai-transparent.ico')+',0'
         $link.Description=if($i -eq 0){'Codex with the recommended 5.1-second welcome'}else{'Codex with the full 8.1-second welcome'}
         $link.WindowStyle=1
         $link.Save()

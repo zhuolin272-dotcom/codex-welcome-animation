@@ -23,6 +23,8 @@
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 两个快捷方式。日常使用第一个即可。
 
+两个快捷方式和启动程序使用白色 OpenAI Logo、透明背景的图标，内含 16 至 256 像素的 10 档尺寸。矢量源文件为 `assets/openai-transparent.svg`，可运行 `python tools/build_icon.py` 重新生成 PNG 和 ICO。
+
 安装文件会复制到当前用户的“文档”文件夹下的 `CodexWelcome`，通常为 `%USERPROFILE%\Documents\CodexWelcome`。使用文档目录是为了避免从 MSIX 打包应用运行安装器时，AppData 写入被 Windows 重定向，导致桌面图标找不到同一份文件。之后移动或删除下载目录不会影响快捷方式。更新安装会将有本项目标记的旧快捷方式迁移到新目录；旧安装文件保留。
 
 启动器优先按 Windows 注册的 `OpenAI.Codex` 应用标识启动桌面版，兼容显示名称或可执行文件仍叫 `ChatGPT` 的安装。它不会把 `%LOCALAPPDATA%\OpenAI\Codex\bin` 下的命令行后台程序当成桌面版。
