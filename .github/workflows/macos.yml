@@ -1,0 +1,57 @@
+name: macOS native build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'macos/**'
+      - 'docs/animation.html'
+      - 'docs/vendor/**'
+      - 'assets/openai-transparent*.png'
+      - '.github/workflows/macos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            label: Universal
+            archs: 'arm64 x86_64'
+          - runner: xcode-27
+            label: AppleSilicon-LatestSDK
+            archs: 'arm64'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Record actual macOS and SDK versions
+        run: |
+          sw_vers | tee macos-build-environment.txt
+          xcodebuild -version | tee -a macos-build-environment.txt
+          swift --version | tee -a macos-build-environment.txt
+          uname -m | tee -a macos-build-environment.txt
+      - name: Test geometry and shell scripts
+        run: bash macos/test.sh
+      - name: Compile native apps and verify signatures
+        env:
+          CW_ARCHS: ${{ matrix.archs }}
+        run: bash macos/build.sh
+      - name: Exercise both speeds in real WKWebView
+        run: bash macos/smoke.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Codex-Welcome-macOS-${{ matrix.label }}
+          path: |
+            macos/dist/Codex-Welcome-macOS.zip
+            macos-build-environment.txt
+          if-no-files-found: error
+          retention-days: 14

@@ -11,3 +11,5 @@ node_modules/
 *.log
 *.lnk
 CodexWelcome.exe
+macos/.build/
+macos/dist/

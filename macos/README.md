@@ -1,0 +1,69 @@
+# Codex Welcome · macOS
+
+原生 Mac 启动器，包含 **5.1 秒**和 **8.1 秒**两版开场。欢迎词收拢消失后，以约 **1.1 秒**的果冻展开显露真实 Codex 窗口。使用 AppKit、WKWebView 和 Core Graphics，不依赖 Edge、Chrome、Node.js、Python 或本地预览服务器。
+
+## 系统与兼容性
+
+- 部署目标为 **macOS 14 及之后版本**，使用公开系统 API；最新 macOS 27 是兼容目标。
+- Universal 构建包含 Apple Silicon `arm64` 和 Intel `x86_64`；你的机器还必须能运行已安装的 Codex 桌面版。macOS 27 本身仅支持 Apple Silicon，参见 [Apple 兼容机型说明](https://support.apple.com/en-us/127255)。
+- 构建工作流记录实际 macOS、Xcode 和 Swift 版本，并测试原生 WebKit 中的两种速度。`macos-latest` 或 Xcode 标签不自动等于最新 macOS 实机测试，具体以 Actions 日志为准。
+
+## 安装和使用
+
+1. 从仓库 [Releases](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases) 下载 **macOS 安装包**，解压。
+2. 可以直接将 `Codex (5.1s).app` 和 `Codex (8.1s).app` 拖到你的“应用程序”文件夹；也可双击 `Install.command` 安装到 `~/Applications` 并创建桌面入口。
+3. 以后双击 **Codex (5.1s)** 即可，不需要打开终端。动画中按 **Esc** 可跳过。
+4. 默认查找 `/Applications/Codex.app` 和 `~/Applications/Codex.app`；找不到时会让你选择 Codex 桌面应用，并保存路径。
+
+图标沿用透明背景、白色 OpenAI Logo，适配 Retina 分辨率。
+
+安装包使用 **ad-hoc 本地签名**，目前未做 Apple Developer ID 签名或公证。因此“编译通过/签名校验通过”不代表 Gatekeeper 已认可开发者。下载的应用首次打开若被拦截，应按 [Apple 官方的应用打开流程](https://support.apple.com/en-us/102445) 人工确认；不需要关闭系统安全功能。也可以在自己的 Mac 上从源码构建。重新签名或更新后，辅助功能权限可能需要重新确认。
+
+## 最大化与权限
+
+要把另一个应用的窗口自动最大化，macOS 需要 **辅助功能**权限：
+
+**系统设置 → 隐私与安全性 → 辅助功能 → 启用相应的 Codex 欢迎启动器。**
+
+只用于还原、调整 Codex 窗口，保留菜单栏、Dock 和窗口按钮；不会进入单独的全屏桌面。两版是独立应用，第一次使用另一版时可能也需要授权。不需要屏幕录制权限，交接过程不截取、保存或上传屏幕截图。
+
+如果暂时不授权，可在提示中选择“保留窗口大小继续”；动画和打开 Codex 仍可使用，窗口保持原来的大小。
+
+## 从源码构建
+
+在 Mac 上安装 Apple Command Line Tools 或 Xcode。缺少工具时可手动执行 `xcode-select --install`。在仓库根目录运行：
+
+```sh
+bash macos/test.sh
+bash macos/build.sh
+bash macos/smoke.sh
+```
+
+生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，但不启动 Codex，也不请求辅助功能权限。
+
+默认构建 Universal；只需 Apple Silicon 时：
+
+```sh
+CW_ARCHS=arm64 bash macos/build.sh
+```
+
+原生诊断：
+
+```sh
+"$HOME/Applications/Codex (5.1s).app/Contents/MacOS/CodexWelcome" --diagnose
+```
+
+Windows 环境只能检查共享网页与源码结构，不能编译 AppKit/WebKit，也不能据此宣称通过 Mac 实机测试。
+
+## 日志、卸载和故障
+
+- 日志：`~/Library/Logs/CodexWelcome/fast.log`、`full.log`。
+- 配置：`~/Library/Application Support/CodexWelcome/config.json`，其中 `CodexPath` 可指定桌面 `.app` 路径。
+- 若自动最大化停住，确认辅助功能权限、Codex 是否有阻塞对话框，以及是否正在切换系统全屏空间。
+- `Uninstall.command` 只移除本项目创建的桌面链接。随后可用 Finder 将 `~/Applications` 内的两版欢迎应用移到废纸篓；不会删除真正的 Codex。
+
+## 设计与分发
+
+动画资源随 `.app` 离线打包。WKWebView 使用临时数据存储，并只允许导航到包内动画文件；原生消息桥只接受主文档的 READY、收拢和完成消息。不会读取个人 Safari/Chrome 配置。
+
+本项目原始代码使用 MIT 许可，Logo、GSAP 与字体的第三方说明见包内 `NOTICE.md` 与 `Sacramento-OFL.txt`。本项目并非 OpenAI 官方启动器。

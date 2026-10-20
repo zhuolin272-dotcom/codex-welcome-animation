@@ -1,6 +1,6 @@
 # Codex Welcome Animation
 
-为 Windows Codex 准备的一段个人欢迎动画：全屏蓝色云雾以果冻弹簧感收成小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome JimmSun**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
+为 Windows 和 macOS Codex 准备的一段个人欢迎动画：全屏蓝色云雾以果冻弹簧感收成小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome JimmSun**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
 
 ![蓝色云雾小球预览](assets/orb.png)
 
@@ -36,6 +36,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -CodexPath
 ```
 
 `ExecutionPolicy Bypass` 只用于当前脚本进程，不修改系统执行策略。安装器也支持 `-InstallRoot` 指定其他安装文件夹。
+
+## macOS 安装
+
+Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实界面展开均保留。部署目标为 macOS 14+，兼容目标包括最新 macOS 27；Universal 包含 Apple Silicon 和 Intel 架构。具体构建/测试系统以 GitHub Actions 的实际环境记录为准。
+
+从 [Releases](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases) 获取 Mac 安装包，解压后双击 `Install.command`，或直接把两个 `.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
+
+当前 Mac 构建为 ad-hoc 签名，未做 Developer ID 公证。完整安装、首次打开、权限和源码构建说明见 **[macOS 使用说明](macos/README.md)**。
 
 ## 使用方式
 
@@ -114,6 +122,7 @@ source/animation.template.html  动画、弹簧曲线、云雾着色器与交接
 tools/build.py                SVG 手写字形生成器
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
 launcher/HandoffOverlay.cs     原生透明果冻展开遮罩，显露真实 Codex
+macos/                        原生 Swift/AppKit/WebKit 启动器及安装、构建脚本
 launcher/Bootstrap.cs          无控制台的原生入口，安装时编译为 CodexWelcome.exe
 launcher/Start.vbs             旧版兼容入口，当前快捷方式不使用
 Install.ps1 / Install.cmd      当前用户安装器
