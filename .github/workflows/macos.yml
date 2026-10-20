@@ -52,5 +52,6 @@ jobs:
           path: |
             macos/dist/Codex-Welcome-macOS.zip
             macos-build-environment.txt
+            macos/.build/startup-*.png
           if-no-files-found: error
           retention-days: 14

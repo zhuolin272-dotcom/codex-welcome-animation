@@ -18,6 +18,8 @@
 
 图标沿用透明背景、白色 OpenAI Logo，适配 Retina 分辨率。
 
+启动时会先在后台准备蓝色云雾首帧，首帧完成后才显示窗口，并等待 WebKit 提交画面后从时间线零点播放。启动器关闭了系统默认的窗口出现动画，以避免加载黑底和窗口缩放闪烁。此预备帧仅来自启动器自身动画，不读取桌面或 Codex 窗口，也不需要屏幕录制权限。
+
 ## 首次打开：Apple 无法验证此应用
 
 安装包使用 **ad-hoc 本地签名，尚未完成 Apple Developer ID 签名和公证**。从网络下载后首次打开，可能遇到：
@@ -67,7 +69,7 @@ bash macos/build.sh
 bash macos/smoke.sh
 ```
 
-生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，但不启动 Codex，也不请求辅助功能权限。
+生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查窗口显示前首帧已就绪、播放从零点开始，并对首帧图像检查蓝色云雾、透明度及黑色空白；不启动 Codex，也不请求辅助功能权限。
 
 默认构建 Universal；只需 Apple Silicon 时：
 

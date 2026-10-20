@@ -83,6 +83,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private var lockFD: Int32 = -1
     private var docs: URL!
     private var welcomeName = "JimmSun"
+    private var startupPhase = "loading"
+    private var startupCover: NSImageView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -187,8 +189,9 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private func showAnimation() {
         window = WelcomeWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.title = "Codex Welcome"
-        window.isOpaque = false
-        window.backgroundColor = .clear
+        window.isOpaque = true
+        window.backgroundColor = paper
+        window.animationBehavior = .none
         window.hasShadow = false
         window.isReleasedWhenClosed = false
         window.level = .statusBar
@@ -207,14 +210,55 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         webView.underPageBackgroundColor = paper
         root.addSubview(webView)
         window.onEscape = { [weak self] in self?.skipIntro() }
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        // Keep the window ordered out until the actual first frame is ready.
+        root.layoutSubtreeIfNeeded()
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName)]
+        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName), URLQueryItem(name: "defer-start", value: "1")]
         if selfTest { components.queryItems?.append(URLQueryItem(name: "motion-test", value: "1")) }
         // URLSearchParams treats a literal + as a space; preserve plus signs in nicknames.
         components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         webView.loadFileURL(components.url!, allowingReadAccessTo: docs)
+    }
+
+    private func prepareFirstFrame() {
+        guard startupPhase == "loading", !finishing else { return }
+        startupPhase = "snapshotting"
+        log("FIRST FRAME preparing windowVisible=\(window.isVisible)")
+        let configuration = WKSnapshotConfiguration()
+        configuration.rect = webView.bounds
+        configuration.afterScreenUpdates = true
+        webView.takeSnapshot(with: configuration) { [weak self] image, error in
+            guard let self = self, !self.finishing, !self.revealing else { return }
+            guard let image = image, error == nil, let root = self.window.contentView else {
+                self.abort(error?.localizedDescription ?? "无法准备动画首帧。")
+                return
+            }
+            if selfTest {
+                guard !self.window.isVisible else { self.abort("Startup window appeared before its first frame"); return }
+                if let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--startup-snapshot=") }),
+                   let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+                   let png = bitmap.representation(using: .png, properties: [:]) {
+                    do { try png.write(to: URL(fileURLWithPath: String(argument.dropFirst("--startup-snapshot=".count))), options: .atomic) }
+                    catch { self.abort(error.localizedDescription); return }
+                }
+            }
+            // This is our own animation frame, never a screenshot of the user's desktop.
+            let cover = NSImageView(frame: root.bounds)
+            cover.image = image
+            cover.imageScaling = .scaleAxesIndependently
+            cover.autoresizingMask = [.width, .height]
+            root.addSubview(cover)
+            self.startupCover = cover
+            self.startupPhase = "presenting"
+            log("FIRST FRAME ready; showing prepared frame")
+            self.window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+            self.window.displayIfNeeded()
+            self.webView.evaluateJavaScript("window.__prepareWelcomeDisplay()") { result, error in
+                if let error = error { self.abort(error.localizedDescription) }
+                else if result as? Bool != true { self.abort("动画首帧未能提交。") }
+            }
+        }
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -223,6 +267,22 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         guard let kind = payload?["kind"] as? String ?? message.body as? String else { return }
         let webClock = payload?["clock"] as? Double
         switch kind {
+        case "prepared":
+            prepareFirstFrame()
+        case "presented":
+            guard startupPhase == "presenting", !finishing, !revealing else { return }
+            if selfTest && (payload?["time"] as? Double != 0 || startupCover == nil) {
+                abort("Startup timeline advanced before its first visible frame"); return
+            }
+            startupPhase = "running"
+            startupCover?.removeFromSuperview()
+            startupCover = nil
+            log("FIRST FRAME presented; starting timeline at zero")
+            webView.evaluateJavaScript("window.__startWelcome()") { [weak self] result, error in
+                guard let self = self, !self.finishing else { return }
+                if let error = error { self.abort(error.localizedDescription) }
+                else if result as? Bool != true { self.abort("动画未能启动。") }
+            }
         case "ready":
             if selfTest && payload?["name"] as? String != welcomeName { abort("Personalized name did not reach WebKit"); return }
             introStarted = ProcessInfo.processInfo.systemUptime
@@ -307,6 +367,10 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         guard !revealing else { return }
         revealing = true
         polling?.invalidate()
+        startupCover?.removeFromSuperview()
+        startupCover = nil
+        window.isOpaque = false
+        window.backgroundColor = .clear
         log("JELLY REVEAL begin")
         // Put the real desktop in front while the opaque native cover still hides it.
         // Otherwise the aperture would reveal Finder and switch to Codex only at the end.
