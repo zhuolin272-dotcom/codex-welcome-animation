@@ -36,26 +36,45 @@ function Find-Edge {
     foreach ($p in $paths) { if (Test-Path -LiteralPath $p -PathType Leaf) { return $p } }
     throw 'Microsoft Edge is required for the fullscreen splash.'
 }
-function Start-Codex([switch]$Reveal) {
+function Find-DesktopProcess {
+    return Get-Process -Name Codex,ChatGPT -ErrorAction SilentlyContinue | Where-Object {
+        $_.MainWindowHandle -ne [IntPtr]::Zero -and $_.Path -and
+        (($target.Kind -eq 'exe' -and $_.Path -eq $target.Path) -or
+         ($target.Kind -eq 'app' -and $_.Path -match '[\\/]OpenAI\.Codex_'))
+    } | Select-Object -First 1
+}
+function Prepare-FullscreenDesktop {
+    $desktop=Find-DesktopProcess
+    if (-not $desktop) { return $false }
+    $handle=$desktop.MainWindowHandle
+    if ([WelcomeWindow]::IsIconic($handle)) { [void][WelcomeWindow]::ShowWindowAsync($handle,9) }
+    if ([WelcomeWindow]::IsFullscreen($handle)) { return $true }
+    [void][WelcomeWindow]::SetForegroundWindow($handle)
+    if ($script:fullscreenRequestWindow -ne $handle -and [WelcomeWindow]::EnterNativeFullscreen($handle)) {
+        $script:fullscreenRequestWindow=$handle
+        Write-LaunchLog ("FULLSCREEN requested pid={0}" -f $desktop.Id)
+    }
+    return $false
+}
+function Start-Codex([switch]$Reveal,[switch]$SkipLaunch) {
     if ($TestMode) { return }
-    if ($target.Kind -eq 'exe') { Start-Process -FilePath $target.Path -WindowStyle Normal | Out-Null }
-    else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
-    Write-LaunchLog ("DESKTOP requested kind={0} target={1}" -f $target.Kind,$target.Path)
+    if (-not $SkipLaunch) {
+        if ($target.Kind -eq 'exe') { Start-Process -FilePath $target.Path -WindowStyle Normal | Out-Null }
+        else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
+        Write-LaunchLog ("DESKTOP requested kind={0} target={1}" -f $target.Kind,$target.Path)
+    }
     if (-not $Reveal) { return }
     $activationWatch=[Diagnostics.Stopwatch]::StartNew()
     while ($activationWatch.Elapsed.TotalSeconds -lt 10) {
-        $desktop=Get-Process -Name Codex,ChatGPT -ErrorAction SilentlyContinue | Where-Object {
-            $_.MainWindowHandle -ne [IntPtr]::Zero -and $_.Path -and
-            (($target.Kind -eq 'exe' -and $_.Path -eq $target.Path) -or
-             ($target.Kind -eq 'app' -and $_.Path -match '[\\/]OpenAI\.Codex_'))
-        } | Select-Object -First 1
+        $prepared=Prepare-FullscreenDesktop
+        $desktop=Find-DesktopProcess
         if ($desktop) {
             $handle=$desktop.MainWindowHandle
             if ([WelcomeWindow]::IsIconic($handle)) { [void][WelcomeWindow]::ShowWindowAsync($handle,9) }
             [void][WelcomeWindow]::SetForegroundWindow($handle)
             Start-Sleep -Milliseconds 100
-            if ([WelcomeWindow]::IsWindowVisible($handle) -and [WelcomeWindow]::GetForegroundWindow() -eq $handle) {
-                Write-LaunchLog ("DESKTOP confirmed pid={0} visible=True foreground=True" -f $desktop.Id)
+            if ($prepared -and [WelcomeWindow]::IsWindowVisible($handle) -and [WelcomeWindow]::GetForegroundWindow() -eq $handle) {
+                Write-LaunchLog ("DESKTOP confirmed pid={0} visible=True foreground=True fullscreen=True" -f $desktop.Id)
                 return
             }
         }
@@ -88,12 +107,32 @@ public static class WelcomeWindow {
  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+ [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr h,uint flags);
+ [DllImport("user32.dll")] private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+ [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor,ref MONITORINFO info);
+ [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr h,int attribute,out RECT rect,int size);
+ [DllImport("user32.dll")] private static extern void keybd_event(byte key,byte scan,uint flags,UIntPtr extra);
+ [StructLayout(LayoutKind.Sequential)] private struct RECT {public int left,top,right,bottom;}
+ [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO {public int size;public RECT monitor,work;public uint flags;}
+ public static bool IsFullscreen(IntPtr h) {
+    IntPtr previous=SetThreadDpiAwarenessContext(new IntPtr(-4));
+    try {
+    RECT bounds; MONITORINFO info=new MONITORINFO();info.size=Marshal.SizeOf(info);
+    if(IsIconic(h) || DwmGetWindowAttribute(h,9,out bounds,Marshal.SizeOf(typeof(RECT)))!=0 || !GetMonitorInfo(MonitorFromWindow(h,2),ref info)) return false;
+    return Math.Abs(bounds.left-info.monitor.left)<=2 && Math.Abs(bounds.top-info.monitor.top)<=2 && Math.Abs(bounds.right-info.monitor.right)<=2 && Math.Abs(bounds.bottom-info.monitor.bottom)<=2;
+    } finally {if(previous!=IntPtr.Zero) SetThreadDpiAwarenessContext(previous);}
+ }
+ public static bool EnterNativeFullscreen(IntPtr h) {
+    if(IsFullscreen(h) || GetForegroundWindow()!=h) return false;
+    keybd_event(0x7a,0x57,0,UIntPtr.Zero);keybd_event(0x7a,0x57,2,UIntPtr.Zero);
+    return true;
+ }
 }
 '@
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
     foreach ($file in @('docs\animation.html','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
-    if ($ValidateOnly) { [pscustomobject]@{Variant=$Variant;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;Resources='OK'} | ConvertTo-Json; exit 0 }
+    if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));Resources='OK'} | ConvertTo-Json; exit 0 }
     $created = $false
     $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
     $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
@@ -112,20 +151,32 @@ public static class WelcomeWindow {
     $browserProcess = Start-Process -FilePath $edge -ArgumentList $browserArgs -PassThru -WindowStyle $windowStyle
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $window=[IntPtr]::Zero; $fadeStarted=-1.0
+    $fadeRequested=$false; $desktopPrepared=$TestMode.IsPresent; $handoffReady=$false; $nextPreparation=0.0; $script:fullscreenRequestWindow=[IntPtr]::Zero
     $fadeDuration = if ($Variant -eq 'fast') {.7/1.6} else {.7}
     $routes = @{ '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
     Write-LaunchLog ("START variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
-    while ($watch.Elapsed.TotalSeconds -lt 45 -and -not $complete) {
+    while ($watch.Elapsed.TotalSeconds -lt 45 -and -not $handoffReady) {
         if (-not $TestMode -and -not $topmost) {
             $browserProcess.Refresh(); $window=$browserProcess.MainWindowHandle
             if ($window -ne [IntPtr]::Zero) { $topmost=[WelcomeWindow]::SetWindowPos($window,[IntPtr](-1),0,0,0,0,0x53) }
         }
         if ($ready -and $topmost -and -not $codexStarted) { Start-Codex; $codexStarted=$true }
+        if ($codexStarted -and -not $desktopPrepared -and $watch.Elapsed.TotalSeconds -ge $nextPreparation) {
+            $nextPreparation=$watch.Elapsed.TotalSeconds+.08
+            $desktopPrepared=Prepare-FullscreenDesktop
+            if ($desktopPrepared) { Write-LaunchLog 'FULLSCREEN ready behind animation' }
+        }
+        if ($fadeRequested -and $desktopPrepared -and $fadeStarted -lt 0) {
+            $fadeStarted=$watch.Elapsed.TotalSeconds
+            if ($window -ne [IntPtr]::Zero) { $old=[WelcomeWindow]::GetWindowLong($window,-20);[void][WelcomeWindow]::SetWindowLong($window,-20,($old -bor 0x80000));[void][WelcomeWindow]::SetLayeredWindowAttributes($window,0,255,2) }
+            Write-LaunchLog 'NATIVE FADE begin'
+        }
         if ($fadeStarted -ge 0 -and $window -ne [IntPtr]::Zero) {
             $v=[Math]::Max(0,[Math]::Min(1,($watch.Elapsed.TotalSeconds-$fadeStarted)/$fadeDuration))
             $v=$v*$v*(3-2*$v)
             [void][WelcomeWindow]::SetLayeredWindowAttributes($window,0,[byte][Math]::Round(255*(1-$v)),2)
         }
+        if ($complete -and $desktopPrepared -and ($TestMode -or ($fadeStarted -ge 0 -and $watch.Elapsed.TotalSeconds-$fadeStarted -ge $fadeDuration))) { $handoffReady=$true; break }
         if (-not $listener.Pending()) { Start-Sleep -Milliseconds 15; continue }
         $client=$listener.AcceptTcpClient(); $client.ReceiveTimeout=1500; $client.SendTimeout=1500
         try {
@@ -141,8 +192,7 @@ public static class WelcomeWindow {
                 if ($parts[0] -ne 'POST' -or -not $match.Success -or $match.Groups[1].Value -cne $nonce) { $status='403 Forbidden' }
                 elseif ($path -eq '/ready') { $ready=$true; Write-LaunchLog 'READY' }
                 elseif ($path -eq '/fade') {
-                    $fadeStarted=$watch.Elapsed.TotalSeconds
-                    if ($window -ne [IntPtr]::Zero) { $old=[WelcomeWindow]::GetWindowLong($window,-20);[void][WelcomeWindow]::SetWindowLong($window,-20,($old -bor 0x80000));[void][WelcomeWindow]::SetLayeredWindowAttributes($window,0,255,2) }
+                    $fadeRequested=$true
                     Write-LaunchLog 'FADE'
                 }
                 else { $complete=$true;Write-LaunchLog ("COMPLETE elapsed={0:N3}s" -f $watch.Elapsed.TotalSeconds) }
@@ -158,7 +208,7 @@ public static class WelcomeWindow {
     }
     if (-not $complete) { Write-LaunchLog 'TIMEOUT fallback handoff';if ($TestMode) { throw 'Animation completion was not received.' } }
     Close-AnimationWindow
-    Start-Codex -Reveal
+    Start-Codex -Reveal -SkipLaunch:$codexStarted
     if ($TestMode) { [pscustomobject]@{Variant=$Variant;Completed=$complete;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
 }
 catch {

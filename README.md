@@ -40,6 +40,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -CodexPath
 - 点击 **Codex (5.1s)**：播放快速欢迎动画，然后进入 Codex。
 - 点击 **Codex (8.1s)**：播放完整版，然后进入 Codex。
 - 动画中按 **Esc**：跳过动画，进入 Codex。
+- 启动时会在动画后方将 Codex 切换到原生全屏，随后淡出动画直接显示 Codex。已全屏时不会重复切换；进入后按 **F11** 可退出全屏。
 - 不想安装：解压后直接双击相应的 `Launch-*.cmd`，但此时要保留解压目录。
 - 也可直接运行下列 PowerShell 命令，参数 `full` 对应完整版：
 
@@ -49,7 +50,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -V
 
 Codex 已运行时会回到现有窗口；未运行时会启动程序。启动器使用独立的 Edge 配置目录播放全屏动画，并在结束后只关闭自己的动画窗口。它不读取你的 Chrome/Edge 登录资料。
 
-动画结束后会请求激活桌面应用、还原最小化窗口并检查它是否可见且位于前台。日志中的 `DESKTOP confirmed ... visible=True foreground=True` 才表示窗口交接已确认；仅有进程启动记录不代表成功。无法激活窗口时会提示错误。
+启动器在动画后方激活桌面应用、还原最小化窗口并通过原生 F11 切入全屏。它按实际显示器物理尺寸检测全屏，兼容 Windows 显示缩放，避免重复切换。全屏就绪后才开始淡出整个动画窗口；启动模式会保留最后一帧欢迎词，直接透明过渡到 Codex，减少先淡成白屏再切换窗口的跳变。动画结束后检查 Codex 是否可见且位于前台。日志中的 `FULLSCREEN ready behind animation` 应早于 `NATIVE FADE begin`，最后的 `DESKTOP confirmed ... visible=True foreground=True fullscreen=True` 表示窗口交接已确认。无法激活窗口时会提示错误。
 
 启动时在随机的 `127.0.0.1` 端口短暂提供本地文件，完成后关闭；不对局域网开放，也不依赖网络。窗口可用时，Codex 会在动画后方准备就绪，最后通过窗口透明度淡出交接。异常情况下最长等待 45 秒后尝试直接打开 Codex。
 
