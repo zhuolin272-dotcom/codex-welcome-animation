@@ -53,5 +53,6 @@ jobs:
             macos/dist/Codex-Welcome-macOS.zip
             macos-build-environment.txt
             macos/.build/startup-*.png
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
