@@ -19,7 +19,7 @@
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.2.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.2.2 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.2/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -43,9 +43,9 @@ Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实�
 
 Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 
-- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.0/Codex-Welcome-macOS-AppleSilicon.zip)。
-- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.0/Codex-Welcome-macOS-universal.zip)。
-- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.2.0)。
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.2/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.2/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.2.2)。
 
 下载并解压后，双击 `Install.command`，或直接把两种速度和 `Codex Settings.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
@@ -99,6 +99,12 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 启动时在随机的 `127.0.0.1` 端口短暂提供本地文件，完成后关闭；不对局域网开放，也不依赖网络。窗口可用时，Codex 会在动画后方准备就绪。异常情况下最长等待 45 秒后结束交接并报告错误。
 
+## 启动首帧与闪烁修复
+
+Windows 在启动浏览器之前先显示与动画同源的蓝色云雾首帧，加载过程保持遮挡；浏览器完成绘制并提交画面后，再平滑交接，从时间线零点开始播放。Mac 在后台准备首帧，显示带首帧保护的窗口后，再等待 WebKit 提交画面并开始播放；同时关闭系统自动的窗口出现动画。
+
+这避免把加载阶段的白色/黑色空窗口显示出来。首帧准备时间取决于机器和首次启动状态，5.1s / 8.1s 的动画节奏不变。所有预备图像均属于本动画，不读取用户桌面或 Codex 界面。
+
 ## 浏览器预览
 
 双击 `docs/index.html` 即可离线预览。页面提供重播、深浅色切换、5.1/8.1 秒切换和全屏按钮。浏览器预览包含欢迎画面的收拢，不会启动电脑上的 Codex；真实界面的向外展开由对应系统的原生启动器完成。
@@ -151,6 +157,8 @@ python tools/build.py --name JimmSun --greeting welcome
 docs/                         可离线运行、可静态部署的预览
 source/animation.template.html  动画、弹簧曲线、云雾着色器与交接逻辑
 tools/build.py                SVG 手写字形生成器
+launcher/StartupCover.cs       Windows 原生蓝色首帧保护与交接
+tools/export_startup_cloud.cjs 从 t=0 着色器生成 Windows 首帧素材
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
 launcher/HandoffOverlay.cs     原生透明果冻展开遮罩，显露真实 Codex
 macos/                        原生 Swift/AppKit/WebKit 启动器及安装、构建脚本
@@ -174,7 +182,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Personalization.ps
 
 Windows 检查包含不传 `ConfigPath`、安装路径含空格、从其他工作目录启动的默认路径回归检查。
 
-前端检查需要开发机安装 `playwright`，然后运行 `node tests/personalization.cjs`；覆盖拉丁/中文、最长名字缩放、输入安全、完整显字和浏览器保存。Mac 的 `bash macos/test.sh` 检查配置保存与验证，`bash macos/smoke.sh` 在原生 WebKit 中用中英文名字播放两种速度。
+前端检查需要开发机安装 `playwright`，运行 `node tests/startup.cjs` 验证首帧显示前时间线保持零点，再运行 `node tests/personalization.cjs`；覆盖拉丁/中文、最长名字缩放、输入安全、完整显字和浏览器保存。Mac 的 `bash macos/test.sh` 检查配置保存与验证，`bash macos/smoke.sh` 在原生 WebKit 中用中英文名字播放两种速度。
 
 ## 测试与排错
 

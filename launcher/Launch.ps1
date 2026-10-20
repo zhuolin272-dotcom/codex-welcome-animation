@@ -108,7 +108,7 @@ function Disable-AnimationTranslation([string]$ProfilePath) {
         [IO.File]::WriteAllText($preferencesPath,($preferences | ConvertTo-Json -Depth 100),(New-Object Text.UTF8Encoding($false)))
     } catch { Write-LaunchLog ('Translation preference skipped: '+$_.Exception.Message) }
 }
-$listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false; $handoffOverlay=$null
+$listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false; $handoffOverlay=$null; $startupCover=$null
 try {
     Write-LaunchLog ("ENTRY variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
 Add-Type -TypeDefinition @'
@@ -152,7 +152,7 @@ public static class WelcomeWindow {
 '@
     $framework=[Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()
     $overlayReferences=@((Join-Path $framework 'System.dll'),(Join-Path $framework 'System.Xaml.dll'),(Join-Path $framework 'WPF\WindowsBase.dll'),(Join-Path $framework 'WPF\PresentationCore.dll'),(Join-Path $framework 'WPF\PresentationFramework.dll'))
-    Add-Type -Path (Join-Path $PSScriptRoot 'HandoffOverlay.cs') -ReferencedAssemblies $overlayReferences
+    Add-Type -Path @((Join-Path $PSScriptRoot 'HandoffOverlay.cs'),(Join-Path $PSScriptRoot 'StartupCover.cs')) -ReferencedAssemblies $overlayReferences
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
     if (-not $PSBoundParameters.ContainsKey('WelcomeName')) {
@@ -160,7 +160,7 @@ public static class WelcomeWindow {
         if(Test-Path -LiteralPath $nameConfig) { $WelcomeName=(Get-Content -LiteralPath $nameConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName }
     }
     if(-not $WelcomeName){$WelcomeName='JimmSun'}
-    foreach ($file in @('docs\animation.html','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
+    foreach ($file in @('assets\startup-cloud.png','docs\animation.html','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
     if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));DesktopMaximized=($null -ne $desktop -and [WelcomeWindow]::IsZoomed($desktop.MainWindowHandle));DesktopStyle= $(if($desktop){'0x{0:X8}' -f [WelcomeWindow]::GetWindowLong($desktop.MainWindowHandle,-16)});Resources='OK'} | ConvertTo-Json; exit 0 }
     $created = $false
     $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
@@ -173,13 +173,22 @@ public static class WelcomeWindow {
     $profileName = if ($TestMode) {'browser-test-profile'} else {'browser-profile'}
     $profile = Join-Path $root $profileName
     Disable-AnimationTranslation $profile
-    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&name=$([Uri]::EscapeDataString($WelcomeName))"
+    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&name=$([Uri]::EscapeDataString($WelcomeName))"
     $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
     else { $browserArgs += @('--kiosk',$url,'--edge-kiosk-type=fullscreen') }
+    if(-not $TestMode){
+        $startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\startup-cloud.png')
+        $coverWatch=[Diagnostics.Stopwatch]::StartNew()
+        while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
+        if($startupCover.Failure){throw $startupCover.Failure}
+        if(-not $startupCover.IsReady){throw 'Startup frame cover was not ready.'}
+        Write-LaunchLog 'FIRST FRAME native blue cover ready before browser launch'
+    }
     $windowStyle = if ($TestMode) {'Hidden'} else {'Normal'}
     $browserProcess = Start-Process -FilePath $edge -ArgumentList $browserArgs -PassThru -WindowStyle $windowStyle
     $watch = [Diagnostics.Stopwatch]::StartNew()
+    $prepared=$false; $presented=$false; $startupPhase='waiting'
     $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $window=[IntPtr]::Zero
     $desktopPrepared=$TestMode.IsPresent; $handoffReady=$false; $skipReveal=$false; $nextPreparation=0.0; $script:fullscreenExitRequestWindow=[IntPtr]::Zero
     $routes = @{ '/glyphs.js'='docs\glyphs.js'; '/personalize.js'='docs\personalize.js'; '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
@@ -192,8 +201,14 @@ public static class WelcomeWindow {
         }
         if (-not $TestMode -and -not $topmost) {
             $browserProcess.Refresh(); $window=$browserProcess.MainWindowHandle
-            if ($window -ne [IntPtr]::Zero) { $topmost=[WelcomeWindow]::SetWindowPos($window,[IntPtr](-1),0,0,0,0,0x53) }
+            if ($window -ne [IntPtr]::Zero) { $topmost=$startupCover.PlaceBrowserBehind($window) }
         }
+        if($startupCover -and $startupCover.Failure){throw $startupCover.Failure}
+        if($prepared -and ($TestMode -or $topmost) -and $startupPhase -eq 'waiting'){$startupPhase='prepare'}
+        if($presented -and $startupPhase -eq 'prepare'){
+            if($TestMode){$startupPhase='play'}else{$startupCover.Dismiss();$startupPhase='blending'}
+        }
+        if($startupPhase -eq 'blending' -and $startupCover.IsComplete){$startupPhase='play';Write-LaunchLog 'FIRST FRAME browser presented; starting timeline at zero'}
         if ($ready -and $topmost -and -not $codexStarted) { Start-Codex; $codexStarted=$true }
         if ($codexStarted -and $null -eq $handoffOverlay -and -not $TestMode) {
             $handoffOverlay=New-Object CodexWelcome.HandoffOverlay -ArgumentList $window
@@ -216,14 +231,25 @@ public static class WelcomeWindow {
             while ($true) { $h=$reader.ReadLine(); if (-not $h) { break }; $headerBytes += $h.Length; if ($headerBytes -gt 16384) { throw 'Headers too large' } }
             $uri=[Uri]('http://127.0.0.1'+$parts[1]);$path=$uri.AbsolutePath
             $status='200 OK'; $contentType='application/json'; $body=[Text.Encoding]::UTF8.GetBytes('{"ok":true}')
-            if ($path -in @('/ready','/fade','/complete')) {
+            if ($path -in @('/prepared','/presented','/ready','/fade','/complete')) {
                 $match=[regex]::Match($uri.Query,'(?:\?|&)token=([^&]+)')
                 if ($parts[0] -ne 'POST' -or -not $match.Success -or $match.Groups[1].Value -cne $nonce) { $status='403 Forbidden' }
+                elseif ($path -in @('/prepared','/presented')) {
+                    $time=[regex]::Match($uri.Query,'(?:\?|&)time=([^&]+)')
+                    if(-not $time.Success -or $time.Groups[1].Value -ne '0'){$status='409 Conflict'}
+                    elseif($path -eq '/prepared'){$prepared=$true;Write-LaunchLog 'FIRST FRAME web prepared at t=0'}
+                    else{$presented=$true;Write-LaunchLog 'FIRST FRAME web presented at t=0'}
+                }
                 elseif ($path -eq '/ready') { $ready=$true; Write-LaunchLog 'READY' }
                 elseif ($path -eq '/fade') {
                     Write-LaunchLog 'JELLY COLLAPSE begin'
                 }
                 else { $complete=$true;Write-LaunchLog ("COMPLETE elapsed={0:N3}s" -f $watch.Elapsed.TotalSeconds) }
+            }
+            elseif ($path -eq '/startup') {
+                $match=[regex]::Match($uri.Query,'(?:\?|&)token=([^&]+)')
+                if($parts[0] -ne 'GET' -or -not $match.Success -or $match.Groups[1].Value -cne $nonce){$status='403 Forbidden'}
+                else{$body=[Text.Encoding]::UTF8.GetBytes(('{"phase":"'+$startupPhase+'"}'))}
             }
             elseif ($routes.ContainsKey($path) -and (Test-Path -LiteralPath (Join-Path $root $routes[$path]))) {
                 $body=[IO.File]::ReadAllBytes((Join-Path $root $routes[$path]));$contentType=if($path.EndsWith('.js')){'text/javascript; charset=utf-8'}elseif($path.EndsWith('.ico')){'image/x-icon'}else{'text/html; charset=utf-8'}
@@ -249,11 +275,12 @@ public static class WelcomeWindow {
         Write-LaunchLog 'JELLY REVEAL complete'
     } else { if ($handoffOverlay) { $handoffOverlay.Dispose() }; Close-AnimationWindow }
     Start-Codex -Reveal -SkipLaunch:$codexStarted
-    if ($TestMode) { [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Completed=$complete;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
+    if ($TestMode) { [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Completed=$complete;FirstFramePrepared=$prepared;FirstFramePresented=$presented;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
 }
 catch {
     Write-LaunchLog ('ERROR '+$_.Exception.Message)
     if ($handoffOverlay) { $handoffOverlay.Dispose() }
+    if ($startupCover) { $startupCover.Dispose() }
     Close-AnimationWindow
     if ($TestMode -or $ValidateOnly) { Write-Error $_; exit 1 }
     Add-Type -AssemblyName System.Windows.Forms
@@ -263,6 +290,7 @@ catch {
 finally {
     if ($listener) { $listener.Stop() }
     if ($handoffOverlay) { $handoffOverlay.Dispose() }
+    if ($startupCover) { $startupCover.Dispose() }
     Close-AnimationWindow
     if ($mutex) { if($ownsMutex){$mutex.ReleaseMutex()};$mutex.Dispose() }
 }

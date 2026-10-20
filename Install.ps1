@@ -10,7 +10,7 @@ if ($CodexPath -and -not (Test-Path -LiteralPath $CodexPath -PathType Leaf)) { t
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 foreach ($folder in @('docs','launcher','assets')) { Copy-Item -LiteralPath (Join-Path $source $folder) -Destination $destination -Recurse -Force }
 foreach($entry in @('Uninstall.ps1','Settings.cmd')) { Copy-Item -LiteralPath (Join-Path $source $entry) -Destination $destination -Force }
-foreach ($required in @('launcher\Settings.ps1','docs\glyphs.js','docs\personalize.js','launcher\Launch.ps1','launcher\HandoffOverlay.cs','docs\animation.html','docs\vendor\gsap.min.js','assets\openai-transparent.ico')) {
+foreach ($required in @('launcher\StartupCover.cs','assets\startup-cloud.png','launcher\Settings.ps1','docs\glyphs.js','docs\personalize.js','launcher\Launch.ps1','launcher\HandoffOverlay.cs','docs\animation.html','docs\vendor\gsap.min.js','assets\openai-transparent.ico')) {
     if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) { throw "Installation is incomplete: $required" }
 }
 Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
