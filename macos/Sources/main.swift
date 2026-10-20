@@ -8,18 +8,18 @@ private let arguments = Set(CommandLine.arguments.dropFirst())
 private let selfTest = arguments.contains("--self-test")
 private let variant = Bundle.main.object(forInfoDictionaryKey: "CWVariant") as? String ?? "fast"
 private let paper = NSColor(srgbRed: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 1)
-private let fileManager = FileManager.default
-private let support = fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/CodexWelcome", isDirectory: true)
+private let welcomeFiles = FileManager.default
+private let support = welcomeFiles.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/CodexWelcome", isDirectory: true)
 
 private func log(_ message: String) {
     let line = ISO8601DateFormatter().string(from: Date()) + " " + message + "\n"
-    let directory = fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/CodexWelcome", isDirectory: true)
-    try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    let directory = welcomeFiles.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/CodexWelcome", isDirectory: true)
+    try? welcomeFiles.createDirectory(at: directory, withIntermediateDirectories: true)
     let url = directory.appendingPathComponent(variant + (selfTest ? "-self-test.log" : ".log"))
-    if !fileManager.fileExists(atPath: url.path) { fileManager.createFile(atPath: url.path, contents: nil) }
+    if !welcomeFiles.fileExists(atPath: url.path) { welcomeFiles.createFile(atPath: url.path, contents: nil) }
     if let handle = try? FileHandle(forWritingTo: url) {
         defer { try? handle.close() }
-        try? handle.seekToEnd()
+        _ = try? handle.seekToEnd()
         try? handle.write(contentsOf: Data(line.utf8))
     }
     if selfTest { print(message) }
@@ -82,7 +82,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
-            try fileManager.createDirectory(at: support, withIntermediateDirectories: true)
+            try welcomeFiles.createDirectory(at: support, withIntermediateDirectories: true)
             lockFD = Darwin.open(support.appendingPathComponent("launch.lock").path, O_CREAT | O_RDWR, 0o600)
             guard lockFD >= 0, flock(lockFD, LOCK_EX | LOCK_NB) == 0 else {
                 log("BUSY another welcome animation is running")
@@ -91,8 +91,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             }
             guard let resources = Bundle.main.resourceURL else { throw failure("无法找到应用资源。请重新安装。") }
             docs = resources.appendingPathComponent("docs", isDirectory: true).resolvingSymlinksInPath()
-            guard fileManager.fileExists(atPath: docs.appendingPathComponent("animation.html").path),
-                  fileManager.fileExists(atPath: docs.appendingPathComponent("vendor/gsap.min.js").path) else {
+            guard welcomeFiles.fileExists(atPath: docs.appendingPathComponent("animation.html").path),
+                  welcomeFiles.fileExists(atPath: docs.appendingPathComponent("vendor/gsap.min.js").path) else {
                 throw failure("动画资源不完整。请重新安装完整的 .app。")
             }
             if !selfTest {
@@ -116,13 +116,13 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private func locateCodex() throws -> URL {
         let config = support.appendingPathComponent("config.json")
         var candidates = [URL(fileURLWithPath: "/Applications/Codex.app", isDirectory: true),
-                          fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Codex.app", isDirectory: true)]
+                          welcomeFiles.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Codex.app", isDirectory: true)]
         if let data = try? Data(contentsOf: config),
            let object = try? JSONSerialization.jsonObject(with: data) as? [String: String], let path = object["CodexPath"] {
             candidates.insert(URL(fileURLWithPath: path, isDirectory: true), at: 0)
         }
         if let registered = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex") { candidates.append(registered) }
-        if let found = candidates.first(where: { $0.pathExtension == "app" && fileManager.fileExists(atPath: $0.path) }) { return found }
+        if let found = candidates.first(where: { $0.pathExtension == "app" && welcomeFiles.fileExists(atPath: $0.path) }) { return found }
         let picker = NSOpenPanel()
         picker.title = "请选择 Codex.app"
         picker.message = "请选择已经安装的 Codex 桌面应用，不是命令行程序。"
@@ -326,7 +326,7 @@ if arguments.contains("--diagnose") {
     let resource = Bundle.main.resourceURL?.appendingPathComponent("docs/animation.html")
     let result: [String: Any] = ["os": ProcessInfo.processInfo.operatingSystemVersionString, "architecture": architecture,
                                "variant": variant, "accessibility": AXIsProcessTrusted(),
-                               "assetsPresent": resource.map { fileManager.fileExists(atPath: $0.path) } ?? false]
+                               "assetsPresent": resource.map { welcomeFiles.fileExists(atPath: $0.path) } ?? false]
     let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
     print(String(decoding: data, as: UTF8.self))
 } else {
