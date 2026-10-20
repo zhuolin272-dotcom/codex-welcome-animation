@@ -1,6 +1,6 @@
 # Codex Welcome Animation
 
-为 Windows Codex 准备的一段个人欢迎动画：全屏蓝色云雾以果冻弹簧感收成小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome JimmSun**，最后淡出进入 Codex。
+为 Windows Codex 准备的一段个人欢迎动画：全屏蓝色云雾以果冻弹簧感收成小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome JimmSun**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
 
 ![蓝色云雾小球预览](assets/orb.png)
 
@@ -11,7 +11,7 @@
 | **5.1 秒 · 推荐** | 1.6× | 5.0625 秒，显示为约 5.1 秒 | 约 2.19 秒 | `Launch-5.1s.cmd` |
 | **8.1 秒 · 完整版** | 1× | 8.1 秒 | 3.5 秒 | `Launch-8.1s.cmd` |
 
-两个版本来自同一条时间线，快速版就是预览中选定的 1.6× 版本。时长指动画本身；启动浏览器和 Codex 所需时间取决于电脑状态。
+两个版本来自同一条时间线，快速版就是预览中选定的 1.6× 版本。表中时长指开场（含片尾收拢），之后两版都额外使用约 **1.1 秒**展开真实的 Codex 界面，保留原来的书写节奏。启动浏览器和 Codex 所需时间取决于电脑状态。
 
 动画按实际窗口尺寸等比缩放并居中，支持不同分辨率、宽高比例和 Windows 显示缩放。蓝球与旋转 Logo 从中心出现，之后 Logo 按设计向上弹射，为欢迎词留出空间。
 
@@ -42,7 +42,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -CodexPath
 - 点击 **Codex (5.1s)**：播放快速欢迎动画，然后进入 Codex。
 - 点击 **Codex (8.1s)**：播放完整版，然后进入 Codex。
 - 动画中按 **Esc**：跳过动画，进入 Codex。
-- 启动时会在动画后方将 Codex 切换到原生全屏，随后淡出动画直接显示 Codex。已全屏时不会重复切换；进入后按 **F11** 可退出全屏。
+- 启动时会在动画后方将 Codex **最大化**，欢迎画面收拢后以果冻遮罩向外展开显示 Codex，保留标题栏、最小化/还原按钮与任务栏。如果此前使用了 F11 全屏，启动器会先退出全屏再最大化。
 - 不想安装：解压后直接双击相应的 `Launch-*.cmd`，但此时要保留解压目录。
 - 也可直接运行下列 PowerShell 命令，参数 `full` 对应完整版：
 
@@ -52,13 +52,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -V
 
 Codex 已运行时会回到现有窗口；未运行时会启动程序。启动器使用独立的 Edge 配置目录播放全屏动画，并在结束后只关闭自己的动画窗口。它不读取你的 Chrome/Edge 登录资料。
 
-启动器在动画后方激活桌面应用、还原最小化窗口并通过原生 F11 切入全屏。它按实际显示器物理尺寸检测全屏，兼容 Windows 显示缩放，避免重复切换。全屏就绪后才开始淡出整个动画窗口；启动模式会保留最后一帧欢迎词，直接透明过渡到 Codex，减少先淡成白屏再切换窗口的跳变。动画结束后检查 Codex 是否可见且位于前台。日志中的 `FULLSCREEN ready behind animation` 应早于 `NATIVE FADE begin`，最后的 `DESKTOP confirmed ... visible=True foreground=True fullscreen=True` 表示窗口交接已确认。无法激活窗口时会提示错误。
+启动器在动画后方激活桌面应用、退出此前的 F11 全屏状态并最大化窗口，同时预热一个原生透明遮罩。欢迎画面在 7.4–8.1 秒（快速版相应加速）收拢到中心并消失，遮罩承接相同的底色，再以柔和的椭圆形变与羽化边缘向外展开，露出下方真实、可操作的 Codex。交接不截取或存储用户界面截图。窗口大小在动画后方准备好，不会在显露后再突然放大。
 
-启动时在随机的 `127.0.0.1` 端口短暂提供本地文件，完成后关闭；不对局域网开放，也不依赖网络。窗口可用时，Codex 会在动画后方准备就绪，最后通过窗口透明度淡出交接。异常情况下最长等待 45 秒后尝试直接打开 Codex。
+日志中的 `MAXIMIZED ready behind animation`、`JELLY COLLAPSE begin`、`JELLY REVEAL begin`、`JELLY REVEAL complete` 表示各阶段，最后的 `DESKTOP confirmed ... visible=True foreground=True maximized=True fullscreen=False` 表示窗口交接已确认。无法激活窗口时会提示错误。
+
+动画页面带有禁止翻译标记，并在本项目独立的 Edge 配置目录中关闭翻译提示，避免弹出“翻译英语页面？”浮层。不会修改你日常使用的浏览器配置。
+
+启动时在随机的 `127.0.0.1` 端口短暂提供本地文件，完成后关闭；不对局域网开放，也不依赖网络。窗口可用时，Codex 会在动画后方准备就绪。异常情况下最长等待 45 秒后结束交接并报告错误。
 
 ## 浏览器预览
 
-双击 `docs/index.html` 即可离线预览。页面提供重播、深浅色切换、5.1/8.1 秒切换和全屏按钮。浏览器预览只播放动画，不会启动电脑上的 Codex。
+双击 `docs/index.html` 即可离线预览。页面提供重播、深浅色切换、5.1/8.1 秒切换和全屏按钮。浏览器预览包含欢迎画面的收拢，不会启动电脑上的 Codex；真实界面的向外展开由 Windows 启动器完成。
 
 - `docs/fast.html`：默认 5.1 秒预览。
 - `docs/full.html`：默认 8.1 秒预览。
@@ -109,11 +113,13 @@ docs/                         可离线运行、可静态部署的预览
 source/animation.template.html  动画、弹簧曲线、云雾着色器与交接逻辑
 tools/build.py                SVG 手写字形生成器
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
+launcher/HandoffOverlay.cs     原生透明果冻展开遮罩，显露真实 Codex
 launcher/Bootstrap.cs          无控制台的原生入口，安装时编译为 CodexWelcome.exe
 launcher/Start.vbs             旧版兼容入口，当前快捷方式不使用
 Install.ps1 / Install.cmd      当前用户安装器
 tests/Smoke.ps1               两种速度的真实浏览器完成回调测试
 tests/Detection.ps1           桌面注册入口检测与 CLI 误识别回归检查
+tests/Handoff.ps1             展开面积与收尾边缘覆盖检查
 assets/                       图标、字形源、预览图及许可证
 ```
 
@@ -124,6 +130,7 @@ assets/                       图标、字形源、预览图及许可证
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -ValidateOnly
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Detection.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Handoff.ps1
 ```
 
 使用无头 Edge 完整播放两个版本，确认真实的 READY、FADE、COMPLETE 回调；不打开 Codex、不显示全屏窗口：
