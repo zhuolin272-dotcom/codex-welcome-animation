@@ -23,9 +23,11 @@
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 两个快捷方式。日常使用第一个即可。
 
-安装文件会复制到 `%LOCALAPPDATA%\CodexWelcome`，因此之后移动或删除下载目录不会影响快捷方式。原来的 Codex 程序和快捷方式保持不变。
+安装文件会复制到当前用户的“文档”文件夹下的 `CodexWelcome`，通常为 `%USERPROFILE%\Documents\CodexWelcome`。使用文档目录是为了避免从 MSIX 打包应用运行安装器时，AppData 写入被 Windows 重定向，导致桌面图标找不到同一份文件。之后移动或删除下载目录不会影响快捷方式。更新安装会将有本项目标记的旧快捷方式迁移到新目录；旧安装文件保留。
 
-如果自动检测不到 Codex，可在 PowerShell 中进入解压目录，明确指定程序位置：
+启动器优先按 Windows 注册的 `OpenAI.Codex` 应用标识启动桌面版，兼容显示名称或可执行文件仍叫 `ChatGPT` 的安装。它不会把 `%LOCALAPPDATA%\OpenAI\Codex\bin` 下的命令行后台程序当成桌面版。
+
+如果自动检测不到 Codex，可在 PowerShell 中进入解压目录，明确指定桌面应用程序位置：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -CodexPath "C:\path\to\Codex.exe"
@@ -46,6 +48,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -V
 ```
 
 Codex 已运行时会回到现有窗口；未运行时会启动程序。启动器使用独立的 Edge 配置目录播放全屏动画，并在结束后只关闭自己的动画窗口。它不读取你的 Chrome/Edge 登录资料。
+
+动画结束后会请求激活桌面应用、还原最小化窗口并检查它是否可见且位于前台。日志中的 `DESKTOP confirmed ... visible=True foreground=True` 才表示窗口交接已确认；仅有进程启动记录不代表成功。无法激活窗口时会提示错误。
 
 启动时在随机的 `127.0.0.1` 端口短暂提供本地文件，完成后关闭；不对局域网开放，也不依赖网络。窗口可用时，Codex 会在动画后方准备就绪，最后通过窗口透明度淡出交接。异常情况下最长等待 45 秒后尝试直接打开 Codex。
 
@@ -106,6 +110,7 @@ launcher/Bootstrap.cs          无控制台的原生入口，安装时编译为 
 launcher/Start.vbs             旧版兼容入口，当前快捷方式不使用
 Install.ps1 / Install.cmd      当前用户安装器
 tests/Smoke.ps1               两种速度的真实浏览器完成回调测试
+tests/Detection.ps1           桌面注册入口检测与 CLI 误识别回归检查
 assets/                       图标、字形源、预览图及许可证
 ```
 
@@ -115,6 +120,7 @@ assets/                       图标、字形源、预览图及许可证
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -ValidateOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Detection.ps1
 ```
 
 使用无头 Edge 完整播放两个版本，确认真实的 READY、FADE、COMPLETE 回调；不打开 Codex、不显示全屏窗口：
@@ -130,13 +136,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Smoke.ps1
 安装后可测试包含原生入口在内的完整调用链（无头模式，不打开 Codex）：
 
 ```powershell
-Start-Process "$env:LOCALAPPDATA\CodexWelcome\CodexWelcome.exe" -ArgumentList 'fast --test' -Wait
-Start-Process "$env:LOCALAPPDATA\CodexWelcome\CodexWelcome.exe" -ArgumentList 'full --test' -Wait
+$install = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'CodexWelcome'
+Start-Process (Join-Path $install 'CodexWelcome.exe') -ArgumentList 'fast --test' -Wait
+Start-Process (Join-Path $install 'CodexWelcome.exe') -ArgumentList 'full --test' -Wait
 ```
 
 ## 卸载
 
-运行安装目录中的 `Uninstall.ps1` 会删除本项目创建的快捷方式，并保留安装文件。之后可手动删除 `%LOCALAPPDATA%\CodexWelcome`。它不会卸载 Codex 或 Edge。
+运行安装目录中的 `Uninstall.ps1` 会删除本项目创建的快捷方式，并保留安装文件。之后可手动删除“文档”中的 `CodexWelcome` 文件夹。它不会卸载 Codex 或 Edge。
 
 ## 许可证与素材
 

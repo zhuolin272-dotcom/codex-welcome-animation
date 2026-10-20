@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$CodexPath,[string]$InstallRoot=(Join-Path $env:LOCALAPPDATA 'CodexWelcome'))
+param([string]$CodexPath,[string]$InstallRoot=(Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'CodexWelcome'))
 $ErrorActionPreference='Stop'
 $source=[IO.Path]::GetFullPath($PSScriptRoot)
 $destination=[IO.Path]::GetFullPath($InstallRoot)
@@ -31,7 +31,11 @@ foreach($location in $locations) {
         $file=Join-Path $location $shortcutNames[$i]
         if(Test-Path -LiteralPath $file) {
             $existing=$shell.CreateShortcut($file)
-            if($existing.Arguments -notlike ('*'+$destination+'*') -and $existing.TargetPath -ne $bootstrap) { throw "An unrelated shortcut already exists: $file" }
+            $previousRoot=Split-Path $existing.TargetPath -Parent
+            $managedNative=(Split-Path $existing.TargetPath -Leaf) -eq 'CodexWelcome.exe' -and (Test-Path -LiteralPath (Join-Path $previousRoot '.codex-welcome-install'))
+            $legacyRoot=Join-Path $env:LOCALAPPDATA 'CodexWelcome'
+            $managedScript=$existing.Arguments -like ('*'+$legacyRoot+'\launcher\*') -and (Test-Path -LiteralPath (Join-Path $legacyRoot '.codex-welcome-install'))
+            if($existing.Arguments -notlike ('*'+$destination+'*') -and $existing.TargetPath -ne $bootstrap -and -not $managedNative -and -not $managedScript) { throw "An unrelated shortcut already exists: $file" }
         }
         $temporaryLink=Join-Path $location ('CodexWelcome-'+[Guid]::NewGuid().ToString('N')+'.lnk')
         $link=$shell.CreateShortcut($temporaryLink)

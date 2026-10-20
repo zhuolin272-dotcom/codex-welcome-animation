@@ -11,37 +11,66 @@ $logDirectory = Join-Path $root 'logs'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 $logFile = Join-Path $logDirectory 'launch.log'
 function Write-LaunchLog([string]$Message) { Add-Content -LiteralPath $logFile -Value ("{0:o} {1}" -f [DateTime]::Now,$Message) }
+function Get-DesktopTarget([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'The supplied Codex desktop path does not exist.' }
+    if ($Path -match '[\\/]OpenAI[\\/]Codex[\\/]bin[\\/]') { throw 'This is a Codex command-line backend, not the desktop app. Omit CodexPath to use the registered desktop application.' }
+    return @{Kind='exe';Path=[IO.Path]::GetFullPath($Path)}
+}
 function Find-Codex {
-    if ($CodexPath) {
-        if (-not (Test-Path -LiteralPath $CodexPath -PathType Leaf)) { throw 'The supplied CodexPath does not exist.' }
-        return @{ Kind='exe'; Path=$CodexPath }
-    }
+    if ($CodexPath) { return Get-DesktopTarget $CodexPath }
     $configPath = Join-Path $root 'config.json'
     if (Test-Path -LiteralPath $configPath) {
         $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-        if ($config.CodexPath -and (Test-Path -LiteralPath $config.CodexPath -PathType Leaf)) { return @{ Kind='exe'; Path=$config.CodexPath } }
+        if ($config.CodexPath -and (Test-Path -LiteralPath $config.CodexPath -PathType Leaf)) { return Get-DesktopTarget $config.CodexPath }
     }
-    $running = Get-Process -Name Codex -ErrorAction SilentlyContinue | Where-Object { $_.Path -and (Test-Path -LiteralPath $_.Path) } | Select-Object -First 1
-    if ($running) { return @{ Kind='exe'; Path=$running.Path } }
-    $bin = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin'
-    if (Test-Path -LiteralPath $bin) {
-        $exe = Get-ChildItem -LiteralPath $bin -Filter Codex.exe -Recurse -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($exe) { return @{ Kind='exe'; Path=$exe.FullName } }
-    }
-    $app = Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^Codex$|OpenAI.*Codex' } | Select-Object -First 1
+    # The Store package may display as ChatGPT and use ChatGPT.exe. Match its
+    # registered identity, never the CLI backend in LocalAppData/OpenAI/Codex/bin.
+    $app = Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.AppID -match '^OpenAI\.Codex_[^!]+!' } | Select-Object -First 1
     if ($app) { return @{ Kind='app'; Path=$app.AppID } }
-    throw 'Codex was not found. Run Install.ps1 -CodexPath "C:\path\to\Codex.exe".'
+    $running = Get-Process -Name Codex,ChatGPT -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and $_.Path -and ($_.Path -match '[\\/]OpenAI\.Codex_' -or ($_.ProcessName -eq 'Codex' -and $_.Path -notmatch '[\\/]OpenAI[\\/]Codex[\\/]bin[\\/]')) } | Select-Object -First 1
+    if ($running) { return Get-DesktopTarget $running.Path }
+    throw 'Codex desktop was not found. Run Install.ps1 -CodexPath with the desktop application executable, not the Codex CLI.'
 }
 function Find-Edge {
     $paths = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe", "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe")
     foreach ($p in $paths) { if (Test-Path -LiteralPath $p -PathType Leaf) { return $p } }
     throw 'Microsoft Edge is required for the fullscreen splash.'
 }
-function Start-Codex {
+function Start-Codex([switch]$Reveal) {
     if ($TestMode) { return }
     if ($target.Kind -eq 'exe') { Start-Process -FilePath $target.Path -WindowStyle Normal | Out-Null }
     else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
-    Write-LaunchLog 'Codex handoff requested'
+    Write-LaunchLog ("DESKTOP requested kind={0} target={1}" -f $target.Kind,$target.Path)
+    if (-not $Reveal) { return }
+    $activationWatch=[Diagnostics.Stopwatch]::StartNew()
+    while ($activationWatch.Elapsed.TotalSeconds -lt 10) {
+        $desktop=Get-Process -Name Codex,ChatGPT -ErrorAction SilentlyContinue | Where-Object {
+            $_.MainWindowHandle -ne [IntPtr]::Zero -and $_.Path -and
+            (($target.Kind -eq 'exe' -and $_.Path -eq $target.Path) -or
+             ($target.Kind -eq 'app' -and $_.Path -match '[\\/]OpenAI\.Codex_'))
+        } | Select-Object -First 1
+        if ($desktop) {
+            $handle=$desktop.MainWindowHandle
+            if ([WelcomeWindow]::IsIconic($handle)) { [void][WelcomeWindow]::ShowWindowAsync($handle,9) }
+            [void][WelcomeWindow]::SetForegroundWindow($handle)
+            Start-Sleep -Milliseconds 100
+            if ([WelcomeWindow]::IsWindowVisible($handle) -and [WelcomeWindow]::GetForegroundWindow() -eq $handle) {
+                Write-LaunchLog ("DESKTOP confirmed pid={0} visible=True foreground=True" -f $desktop.Id)
+                return
+            }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw 'The Codex desktop window could not be brought to the foreground. See logs/launch.log.'
+}
+function Close-AnimationWindow {
+    if ($browserProcess) {
+        $browserProcess.Refresh()
+        if (-not $browserProcess.HasExited) {
+            [void]$browserProcess.CloseMainWindow()
+            if (-not $browserProcess.WaitForExit(700)) { Stop-Process -Id $browserProcess.Id -ErrorAction SilentlyContinue }
+        }
+    }
 }
 $listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false
 try {
@@ -54,12 +83,17 @@ public static class WelcomeWindow {
  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int index);
  [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h,int index,int value);
  [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr h,uint key,byte alpha,uint flags);
+ [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h,int command);
+ [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
 }
 '@
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
     foreach ($file in @('docs\animation.html','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
-    if ($ValidateOnly) { [pscustomobject]@{Variant=$Variant;Edge=$edge;Codex=$target.Path;Resources='OK'} | ConvertTo-Json; exit 0 }
+    if ($ValidateOnly) { [pscustomobject]@{Variant=$Variant;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;Resources='OK'} | ConvertTo-Json; exit 0 }
     $created = $false
     $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
     $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
@@ -123,7 +157,8 @@ public static class WelcomeWindow {
         finally { $client.Close() }
     }
     if (-not $complete) { Write-LaunchLog 'TIMEOUT fallback handoff';if ($TestMode) { throw 'Animation completion was not received.' } }
-    Start-Codex
+    Close-AnimationWindow
+    Start-Codex -Reveal
     if ($TestMode) { [pscustomobject]@{Variant=$Variant;Completed=$complete;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
 }
 catch {
@@ -135,12 +170,6 @@ catch {
 }
 finally {
     if ($listener) { $listener.Stop() }
-    if ($browserProcess) {
-        $browserProcess.Refresh()
-        if (-not $browserProcess.HasExited) {
-            [void]$browserProcess.CloseMainWindow()
-            if (-not $browserProcess.WaitForExit(700)) { Stop-Process -Id $browserProcess.Id -ErrorAction SilentlyContinue }
-        }
-    }
+    Close-AnimationWindow
     if ($mutex) { if($ownsMutex){$mutex.ReleaseMutex()};$mutex.Dispose() }
 }
