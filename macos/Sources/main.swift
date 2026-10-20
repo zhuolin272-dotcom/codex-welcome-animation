@@ -212,6 +212,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName)]
         if selfTest { components.queryItems?.append(URLQueryItem(name: "motion-test", value: "1")) }
+        // URLSearchParams treats a literal + as a space; preserve plus signs in nicknames.
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         webView.loadFileURL(components.url!, allowingReadAccessTo: docs)
     }
 
