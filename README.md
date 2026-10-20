@@ -8,8 +8,8 @@
 
 | 版本 | 速度 | 动画时长 | 欢迎词书写 | 启动入口 |
 | --- | --- | --- | --- | --- |
-| **5.1 秒 · 推荐** | 1.6× | 5.0625 秒，显示为约 5.1 秒 | 约 2.19 秒 | `Launch-5.1s.cmd` |
-| **8.1 秒 · 完整版** | 1× | 8.1 秒 | 3.5 秒 | `Launch-8.1s.cmd` |
+| **5.1 秒 · 推荐** | 1.6× | 5.0625 秒，显示为约 5.1 秒 | 约 2.19 秒 | Windows：`Launch-5.1s.cmd`；Mac：`Codex (5.1s).app` |
+| **8.1 秒 · 完整版** | 1× | 8.1 秒 | 3.5 秒 | Windows：`Launch-8.1s.cmd`；Mac：`Codex (8.1s).app` |
 
 两个版本来自同一条时间线，快速版就是预览中选定的 1.6× 版本。表中时长指开场（含片尾收拢），之后两版都额外使用约 **1.1 秒**展开真实的 Codex 界面，保留原来的书写节奏。启动浏览器和 Codex 所需时间取决于电脑状态。
 
@@ -41,11 +41,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -CodexPath
 
 Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实界面展开均保留。部署目标为 macOS 14+，兼容目标包括最新 macOS 27；Universal 包含 Apple Silicon 和 Intel 架构。具体构建/测试系统以 GitHub Actions 的实际环境记录为准。
 
-从 [Releases](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases) 获取 Mac 安装包，解压后双击 `Install.command`，或直接把两个 `.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
+Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
+
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.1.0-macos/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.1.0-macos/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.1.0-macos)。
+
+下载并解压后，双击 `Install.command`，或直接把两个 `.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
 当前 Mac 构建为 ad-hoc 签名，未做 Developer ID 公证。完整安装、首次打开、权限和源码构建说明见 **[macOS 使用说明](macos/README.md)**。
 
-## 使用方式
+## Windows 使用方式
 
 - 点击 **Codex (5.1s)**：播放快速欢迎动画，然后进入 Codex。
 - 点击 **Codex (8.1s)**：播放完整版，然后进入 Codex。
@@ -70,7 +76,7 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 ## 浏览器预览
 
-双击 `docs/index.html` 即可离线预览。页面提供重播、深浅色切换、5.1/8.1 秒切换和全屏按钮。浏览器预览包含欢迎画面的收拢，不会启动电脑上的 Codex；真实界面的向外展开由 Windows 启动器完成。
+双击 `docs/index.html` 即可离线预览。页面提供重播、深浅色切换、5.1/8.1 秒切换和全屏按钮。浏览器预览包含欢迎画面的收拢，不会启动电脑上的 Codex；真实界面的向外展开由对应系统的原生启动器完成。
 
 - `docs/fast.html`：默认 5.1 秒预览。
 - `docs/full.html`：默认 8.1 秒预览。
@@ -101,7 +107,7 @@ https://zhuolin272-dotcom.github.io/codex-welcome-animation/
 https://zhuolin272-dotcom.github.io/codex-welcome-animation/?variant=full
 ```
 
-这些是启用 Pages 后的预期地址，不代表刚克隆的仓库已经启用。静态站点用于分享和预览；Windows 启动能力由下载后的本地脚本提供。发布源配置参见 [GitHub 官方文档](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)。
+这些是启用 Pages 后的预期地址，不代表刚克隆的仓库已经启用。静态站点用于分享和预览；打开桌面 Codex 的能力由下载后的 Windows / macOS 本地启动器提供。发布源配置参见 [GitHub 官方文档](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)。
 
 也可把 `docs/` 中的全部文件上传到任意静态托管服务；保留 `vendor/` 相对路径即可。
 
@@ -114,7 +120,7 @@ python -m pip install -r requirements-dev.txt
 python tools/build.py --name JimmSun --greeting welcome
 ```
 
-`--name` 和 `--greeting` 当前支持 Sacramento 字体包含的拉丁字符，建议使用简短文字以保持版式。字形生成结果保存在 `docs/animation.html`。修改动作、配色和着色器请编辑 `source/animation.template.html`，然后重新运行构建脚本；不要只修改生成文件。重新运行 `Install.cmd` 可将修改更新到本机安装目录。
+`--name` 和 `--greeting` 当前支持 Sacramento 字体包含的拉丁字符，建议使用简短文字以保持版式。字形生成结果保存在 `docs/animation.html`。修改动作、配色和着色器请编辑 `source/animation.template.html`，然后重新运行构建脚本；不要只修改生成文件。Windows 重新运行 `Install.cmd` 可将修改更新到本机安装目录；Mac 重新执行 `bash macos/build.sh` 后安装生成的 `.app`。
 
 ```text
 docs/                         可离线运行、可静态部署的预览
