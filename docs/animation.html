@@ -42,7 +42,7 @@ function render(){const t=frameTime;
 }
 window.__timelines=window.__timelines||{};const tl=gsap.timeline({paused:true});tl.to(state,{time:8.1,duration:8.1,ease:'none'},0);window.__timelines['jimmsun-intro']=tl;render();
 const variant=params.get('variant')==='full'?'full':'fast';tl.timeScale(variant==='full'?1:1.6);tl.eventCallback('onComplete',()=>notifyHost('complete'));
-function play(){fadeSent=false;tl.restart();if(matchMedia('(prefers-reduced-motion: reduce)').matches){if(params.has('launch'))tl.progress(1);else tl.pause(7.3)}}
+function play(){fadeSent=false;tl.restart();if(!params.has('motion-test')&&matchMedia('(prefers-reduced-motion: reduce)').matches){if(params.has('launch'))tl.progress(1);else tl.pause(7.3)}}
 if(params.has('launch')){notifyHost('ready');addEventListener('keydown',e=>{if(e.code==='Escape'){e.preventDefault();tl.progress(1)}})}
 if(params.has('play'))play();
 window.addEventListener('message',e=>{if(e.source!==parent)return;const m=e.data||{};if(m.type==='replay')play();if(m.type==='theme')document.documentElement.classList.toggle('dark',m.dark);if(m.type==='speed')tl.timeScale(m.speed);if(m.type==='seek')tl.pause(m.time)});

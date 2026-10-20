@@ -77,6 +77,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private var revealTimer: Timer?
     private var revealStarted = 0.0
     private var started = 0.0
+    private var introStarted = 0.0
     private var lockFD: Int32 = -1
     private var docs: URL!
 
@@ -179,15 +180,25 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         NSApp.activate()
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant)]
+        if selfTest { components.queryItems?.append(URLQueryItem(name: "motion-test", value: "1")) }
         webView.loadFileURL(components.url!, allowingReadAccessTo: docs)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.webView === webView, let kind = message.body as? String else { return }
         switch kind {
-        case "ready": log("READY"); openCodex()
+        case "ready":
+            introStarted = ProcessInfo.processInfo.systemUptime
+            log("READY"); openCodex()
         case "fade": log("JELLY COLLAPSE begin")
-        case "complete": introComplete = true; log("INTRO complete"); poll()
+        case "complete":
+            let elapsed = ProcessInfo.processInfo.systemUptime - introStarted
+            if selfTest && elapsed < (variant == "full" ? 7.8 : 4.8) {
+                abort("Self-test animation completed too early: \(elapsed)s")
+                return
+            }
+            introComplete = true
+            log(String(format: "INTRO complete elapsed=%.3fs", elapsed)); poll()
         default: break
         }
     }
