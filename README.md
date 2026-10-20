@@ -19,7 +19,7 @@
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.2.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -158,6 +158,8 @@ assets/                       图标、字形源、预览图及许可证
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Personalization.ps1
 ```
+
+Windows 检查包含不传 `ConfigPath`、安装路径含空格、从其他工作目录启动的默认路径回归检查。
 
 前端检查需要开发机安装 `playwright`，然后运行 `node tests/personalization.cjs`；覆盖拉丁/中文、最长名字缩放、输入安全、完整显字和浏览器保存。Mac 的 `bash macos/test.sh` 检查配置保存与验证，`bash macos/smoke.sh` 在原生 WebKit 中用中英文名字播放两种速度。
 

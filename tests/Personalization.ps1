@@ -18,5 +18,29 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Settings window could not save.'}
     $saved=Get-Content -LiteralPath $temporary -Raw -Encoding UTF8 | ConvertFrom-Json
     if($saved.WelcomeName -cne 'Alex+Sun' -or $saved.Preserved -ne 42){throw 'The actual settings save-button handler failed.'}
+    # Match a normal -File launch: omit ConfigPath, and use an unrelated cwd.
+    # Keep the default config isolated from the user's installation.
+    $sandbox=Join-Path ([IO.Path]::GetTempPath()) ('Codex Welcome default '+[Guid]::NewGuid().ToString('N'))
+    $sandboxLauncher=Join-Path $sandbox 'launcher'
+    New-Item -ItemType Directory -Path $sandboxLauncher -Force | Out-Null
+    $sandboxScript=Join-Path $sandboxLauncher 'Settings.ps1'
+    Copy-Item -LiteralPath (Join-Path $root 'launcher\Settings.ps1') -Destination $sandboxScript
+    Push-Location $env:WINDIR
+    try {
+        & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $sandboxScript -WelcomeName 'Default Name' | Out-Null
+        if($LASTEXITCODE -ne 0){throw 'Default settings path failed without ConfigPath.'}
+    } finally {Pop-Location}
+    $defaultConfig=Join-Path $sandbox 'config.json'
+    if(-not(Test-Path -LiteralPath $defaultConfig)){throw 'Default config was written outside the installation.'}
+    if((Get-Content -LiteralPath $defaultConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName -cne 'Default Name'){throw 'Default name did not save.'}
     Write-Output 'Windows personalization: Unicode save, preserved CodexPath, rejected invalid input PASS'
-} finally {if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary}}
+    Write-Output 'Default settings path: normal -File launch, spaces in path, unrelated cwd PASS'
+} finally {
+    if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary}
+    # Remove only the explicit leaves created above; no recursive deletion.
+    if($sandbox){
+        foreach($leaf in @($sandboxScript,$defaultConfig)){if($leaf -and (Test-Path -LiteralPath $leaf)){Remove-Item -LiteralPath $leaf}}
+        if(Test-Path -LiteralPath $sandboxLauncher){Remove-Item -LiteralPath $sandboxLauncher}
+        if(Test-Path -LiteralPath $sandbox){Remove-Item -LiteralPath $sandbox}
+    }
+}

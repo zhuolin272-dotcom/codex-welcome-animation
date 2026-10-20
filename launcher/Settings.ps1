@@ -1,6 +1,14 @@
 ﻿[CmdletBinding()]
-param([string]$WelcomeName,[switch]$TestUI,[string]$ConfigPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'config.json'))
+param([string]$WelcomeName,[switch]$TestUI,[string]$ConfigPath)
 $ErrorActionPreference='Stop'
+# Script automatic variables are initialized after parameter binding in Windows PowerShell.
+# Resolve the default here, never in param(), and never relative to the caller's directory.
+if(-not $PSBoundParameters.ContainsKey('ConfigPath')) {
+    $ConfigPath=Join-Path (Split-Path $PSScriptRoot -Parent) 'config.json'
+} elseif([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    throw 'ConfigPath must not be empty.'
+}
+$ConfigPath=[IO.Path]::GetFullPath($ConfigPath)
 function ConvertTo-WelcomeName([string]$Value) {
     $name=$Value.Normalize([Text.NormalizationForm]::FormC).Trim()
     $count=0
