@@ -1,2 +1,2 @@
 @echo off
-start "" "%SystemRoot%\System32\wscript.exe" "%~dp0launcher\Start.vbs" fast
+start "" "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0launcher\Launch.ps1" -Variant fast

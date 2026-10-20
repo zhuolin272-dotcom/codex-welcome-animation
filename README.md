@@ -15,7 +15,7 @@
 
 ## Windows 安装
 
-需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。
+需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。快捷方式直接通过系统 PowerShell 启动，不依赖 VBScript 或 Windows Script Host。
 
 1. 在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
@@ -37,7 +37,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -CodexPath
 - 点击 **Codex (8.1s)**：播放完整版，然后进入 Codex。
 - 动画中按 **Esc**：跳过动画，进入 Codex。
 - 不想安装：解压后直接双击相应的 `Launch-*.cmd`，但此时要保留解压目录。
-- 如果 Windows 没有启用 VBScript，可直接运行下列 PowerShell 命令，参数 `full` 对应完整版：
+- 也可直接运行下列 PowerShell 命令，参数 `full` 对应完整版：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -Variant fast
@@ -100,7 +100,7 @@ docs/                         可离线运行、可静态部署的预览
 source/animation.template.html  动画、弹簧曲线、云雾着色器与交接逻辑
 tools/build.py                SVG 手写字形生成器
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
-launcher/Start.vbs             隐藏控制台的快捷方式入口
+launcher/Start.vbs             旧版兼容入口，当前快捷方式不使用
 Install.ps1 / Install.cmd      当前用户安装器
 tests/Smoke.ps1               两种速度的真实浏览器完成回调测试
 assets/                       图标、字形源、预览图及许可证
@@ -121,6 +121,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Smoke.ps1
 ```
 
 日志位于安装目录的 `logs\launch.log`。如果 Codex 更新后更换了安装位置，先重新打开 Codex 再试；也可以重新安装并指定新的 `-CodexPath`。如果显卡不支持 WebGL，蓝球会使用渐变外观，其他动作继续播放。
+
+如果旧版快捷方式出现 Windows Script Host 的“无法找到脚本文件 Start.vbs”提示，下载最新版并重新运行 `Install.cmd`，即可更新桌面和开始菜单的两个快捷方式。当前安装器会检查必要文件，并改用直接启动 PowerShell 的入口。
 
 ## 卸载
 

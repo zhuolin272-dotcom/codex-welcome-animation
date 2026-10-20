@@ -10,6 +10,9 @@ if ($CodexPath -and -not (Test-Path -LiteralPath $CodexPath -PathType Leaf)) { t
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 foreach ($folder in @('docs','launcher','assets')) { Copy-Item -LiteralPath (Join-Path $source $folder) -Destination $destination -Recurse -Force }
 Copy-Item -LiteralPath (Join-Path $source 'Uninstall.ps1') -Destination $destination -Force
+foreach ($required in @('launcher\Launch.ps1','docs\animation.html','docs\vendor\gsap.min.js','assets\app.ico')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) { throw "Installation is incomplete: $required" }
+}
 Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
 if ($CodexPath) { @{CodexPath=[IO.Path]::GetFullPath($CodexPath)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $destination 'config.json') -Encoding UTF8 }
 $validation = & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $destination 'launcher\Launch.ps1') -ValidateOnly
@@ -26,9 +29,9 @@ foreach($location in $locations) {
             if($existing.Arguments -notlike ('*'+$destination+'*')) { throw "An unrelated shortcut already exists: $file" }
         }
         $link=$shell.CreateShortcut($file)
-        $link.TargetPath=Join-Path $env:WINDIR 'System32\wscript.exe'
+        $link.TargetPath=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
         $variant=if($i -eq 0){'fast'}else{'full'}
-        $link.Arguments='"'+(Join-Path $destination 'launcher\Start.vbs')+'" '+$variant
+        $link.Arguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $destination 'launcher\Launch.ps1')+'" -Variant '+$variant
         $link.WorkingDirectory=$destination
         $link.IconLocation=(Join-Path $destination 'assets\app.ico')+',0'
         $link.Description=if($i -eq 0){'Codex with the recommended 5.1-second welcome'}else{'Codex with the full 8.1-second welcome'}
