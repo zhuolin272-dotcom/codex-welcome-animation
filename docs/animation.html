@@ -8,7 +8,7 @@ html,body{width:100%;height:100%}#intro{position:absolute;left:50%;top:50%;overf
 </div></div><script src="vendor/gsap.min.js"></script><script>
 const params=new URLSearchParams(location.search);if(params.get('theme')==='dark')document.documentElement.classList.add('dark');
 let openingScale=9.2;function fitStage(){const scale=Math.min(innerWidth/1920,innerHeight/1080);document.getElementById('intro').style.setProperty('--stage-scale',scale);openingScale=Math.max(9.2,Math.hypot(innerWidth,innerHeight)/(280*scale)*1.1)}fitStage();addEventListener('resize',()=>{fitStage();if(window.__voiceDiagnostics)render()});
-let fadeSent=false;function notifyHost(kind){if(!params.has('launch'))return;const nativeHost=window.webkit?.messageHandlers?.codexWelcome;if(nativeHost){nativeHost.postMessage(kind);return}const token=params.get('token');if(!token)return;fetch('/'+kind+'?token='+encodeURIComponent(token),{method:'POST',cache:'no-store'}).catch(()=>{})}
+let fadeSent=false;function notifyHost(kind){if(!params.has('launch'))return;const nativeHost=window.webkit?.messageHandlers?.codexWelcome;if(nativeHost){nativeHost.postMessage({kind,clock:performance.now()});return}const token=params.get('token');if(!token)return;fetch('/'+kind+'?token='+encodeURIComponent(token),{method:'POST',cache:'no-store'}).catch(()=>{})}
 const canvas=document.getElementById('clouds');const gl=canvas.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
 let drawClouds=()=>{};let shaderReady=false;
 if(gl){

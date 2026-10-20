@@ -22,7 +22,7 @@ private func log(_ message: String) {
         _ = try? handle.seekToEnd()
         try? handle.write(contentsOf: Data(line.utf8))
     }
-    if selfTest { print(message) }
+    if selfTest { print(message); fflush(stdout) }
 }
 
 private func axAttribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -78,6 +78,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private var revealStarted = 0.0
     private var started = 0.0
     private var introStarted = 0.0
+    private var webIntroStarted: Double?
     private var lockFD: Int32 = -1
     private var docs: URL!
 
@@ -185,14 +186,21 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame, message.webView === webView, let kind = message.body as? String else { return }
+        guard message.frameInfo.isMainFrame, message.webView === webView else { return }
+        let payload = message.body as? [String: Any]
+        guard let kind = payload?["kind"] as? String ?? message.body as? String else { return }
+        let webClock = payload?["clock"] as? Double
         switch kind {
         case "ready":
             introStarted = ProcessInfo.processInfo.systemUptime
+            webIntroStarted = webClock
             log("READY"); openCodex()
         case "fade": log("JELLY COLLAPSE begin")
         case "complete":
-            let elapsed = ProcessInfo.processInfo.systemUptime - introStarted
+            // Web-process timestamps exclude main-thread IPC delivery delays.
+            let elapsed: Double
+            if let clock = webClock, let start = webIntroStarted { elapsed = (clock - start) / 1000 }
+            else { elapsed = ProcessInfo.processInfo.systemUptime - introStarted }
             if selfTest && elapsed < (variant == "full" ? 7.8 : 4.8) {
                 abort("Self-test animation completed too early: \(elapsed)s")
                 return
