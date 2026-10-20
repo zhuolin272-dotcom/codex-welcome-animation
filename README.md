@@ -15,7 +15,7 @@
 
 ## Windows 安装
 
-需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。快捷方式直接通过系统 PowerShell 启动，不依赖 VBScript 或 Windows Script Host。
+需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
 1. 在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
@@ -100,6 +100,7 @@ docs/                         可离线运行、可静态部署的预览
 source/animation.template.html  动画、弹簧曲线、云雾着色器与交接逻辑
 tools/build.py                SVG 手写字形生成器
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
+launcher/Bootstrap.cs          无控制台的原生入口，安装时编译为 CodexWelcome.exe
 launcher/Start.vbs             旧版兼容入口，当前快捷方式不使用
 Install.ps1 / Install.cmd      当前用户安装器
 tests/Smoke.ps1               两种速度的真实浏览器完成回调测试
@@ -120,9 +121,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -V
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Smoke.ps1
 ```
 
-日志位于安装目录的 `logs\launch.log`。如果 Codex 更新后更换了安装位置，先重新打开 Codex 再试；也可以重新安装并指定新的 `-CodexPath`。如果显卡不支持 WebGL，蓝球会使用渐变外观，其他动作继续播放。
+日志位于安装目录的 `logs\launch.log`。原生入口额外记录 `logs\bootstrap.log`，包含入口启动时间、PowerShell 输出与退出码；启动失败会弹出错误提示。如果 Codex 更新后更换了安装位置，先重新打开 Codex 再试；也可以重新安装并指定新的 `-CodexPath`。如果显卡不支持 WebGL，蓝球会使用渐变外观，其他动作继续播放。
 
-如果旧版快捷方式出现 Windows Script Host 的“无法找到脚本文件 Start.vbs”提示，下载最新版并重新运行 `Install.cmd`，即可更新桌面和开始菜单的两个快捷方式。当前安装器会检查必要文件，并改用直接启动 PowerShell 的入口。
+如果旧版快捷方式出现 Windows Script Host 的“无法找到脚本文件 Start.vbs”提示，或双击后没有反应，下载最新版并重新运行 `Install.cmd`，即可重新生成桌面和开始菜单的两个快捷方式并刷新图标缓存。当前快捷方式的目标应为安装目录中的 `CodexWelcome.exe`，参数为 `fast` 或 `full`。也可直接双击安装目录中的 `CodexWelcome.exe`，默认播放快速版。
+
+安装后可测试包含原生入口在内的完整调用链（无头模式，不打开 Codex）：
+
+```powershell
+Start-Process "$env:LOCALAPPDATA\CodexWelcome\CodexWelcome.exe" -ArgumentList 'fast --test' -Wait
+Start-Process "$env:LOCALAPPDATA\CodexWelcome\CodexWelcome.exe" -ArgumentList 'full --test' -Wait
+```
 
 ## 卸载
 

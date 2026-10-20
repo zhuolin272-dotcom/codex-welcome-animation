@@ -14,6 +14,11 @@ foreach ($required in @('launcher\Launch.ps1','docs\animation.html','docs\vendor
     if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) { throw "Installation is incomplete: $required" }
 }
 Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
+$compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+if (-not (Test-Path -LiteralPath $compiler)) { $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
+$bootstrap=Join-Path $destination 'CodexWelcome.exe'
+& $compiler /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll ('/win32icon:'+(Join-Path $destination 'assets\app.ico')) ('/out:'+$bootstrap) (Join-Path $destination 'launcher\Bootstrap.cs')
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $bootstrap)) { throw 'Could not build the native Windows launcher.' }
 if ($CodexPath) { @{CodexPath=[IO.Path]::GetFullPath($CodexPath)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $destination 'config.json') -Encoding UTF8 }
 $validation = & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $destination 'launcher\Launch.ps1') -ValidateOnly
 if ($LASTEXITCODE -ne 0) { throw 'Installation files copied, but Edge/Codex detection failed. Retry with -CodexPath.' }
@@ -26,18 +31,22 @@ foreach($location in $locations) {
         $file=Join-Path $location $shortcutNames[$i]
         if(Test-Path -LiteralPath $file) {
             $existing=$shell.CreateShortcut($file)
-            if($existing.Arguments -notlike ('*'+$destination+'*')) { throw "An unrelated shortcut already exists: $file" }
+            if($existing.Arguments -notlike ('*'+$destination+'*') -and $existing.TargetPath -ne $bootstrap) { throw "An unrelated shortcut already exists: $file" }
         }
-        $link=$shell.CreateShortcut($file)
-        $link.TargetPath=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $temporaryLink=Join-Path $location ('CodexWelcome-'+[Guid]::NewGuid().ToString('N')+'.lnk')
+        $link=$shell.CreateShortcut($temporaryLink)
+        $link.TargetPath=$bootstrap
         $variant=if($i -eq 0){'fast'}else{'full'}
-        $link.Arguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $destination 'launcher\Launch.ps1')+'" -Variant '+$variant
+        $link.Arguments=$variant
         $link.WorkingDirectory=$destination
         $link.IconLocation=(Join-Path $destination 'assets\app.ico')+',0'
         $link.Description=if($i -eq 0){'Codex with the recommended 5.1-second welcome'}else{'Codex with the full 8.1-second welcome'}
-        $link.WindowStyle=7
+        $link.WindowStyle=1
         $link.Save()
+        Move-Item -LiteralPath $temporaryLink -Destination $file -Force
     }
 }
+Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class WelcomeShellRefresh{[DllImport("shell32.dll")]public static extern void SHChangeNotify(uint e,uint f,IntPtr a,IntPtr b);}'
+[WelcomeShellRefresh]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)
 Write-Output "Installed: $destination"
 Write-Output 'Desktop and Start Menu shortcuts: Codex (5.1s), Codex (8.1s).'

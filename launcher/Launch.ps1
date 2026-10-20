@@ -43,6 +43,9 @@ function Start-Codex {
     else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
     Write-LaunchLog 'Codex handoff requested'
 }
+$listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false
+try {
+    Write-LaunchLog ("ENTRY variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -53,8 +56,6 @@ public static class WelcomeWindow {
  [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr h,uint key,byte alpha,uint flags);
 }
 '@
-$listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false
-try {
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
     foreach ($file in @('docs\animation.html','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
@@ -62,7 +63,7 @@ try {
     $created = $false
     $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
     $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
-    if (-not $created) { exit 0 }; $ownsMutex=$true
+    if (-not $created) { Write-LaunchLog 'BUSY another animation is running'; exit 0 }; $ownsMutex=$true
     $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback,0)
     $listener.Start()
     $port = $listener.LocalEndpoint.Port
@@ -130,6 +131,7 @@ catch {
     if ($TestMode -or $ValidateOnly) { Write-Error $_; exit 1 }
     Add-Type -AssemblyName System.Windows.Forms
     [void][Windows.Forms.MessageBox]::Show($_.Exception.Message,'Codex Welcome')
+    exit 1
 }
 finally {
     if ($listener) { $listener.Stop() }
