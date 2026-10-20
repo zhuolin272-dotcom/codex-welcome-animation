@@ -14,5 +14,9 @@ try {
     $ErrorActionPreference='Stop'
     if($LASTEXITCODE -eq 0){throw 'Overlong name was accepted.'}
     if((Get-Content -LiteralPath $temporary -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName -cne $name){throw 'Invalid name changed saved configuration.'}
+    & powershell.exe -NoProfile -STA -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $root 'launcher\Settings.ps1') -ConfigPath $temporary -TestUI | Out-Null
+    if($LASTEXITCODE -ne 0){throw 'Settings window could not save.'}
+    $saved=Get-Content -LiteralPath $temporary -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($saved.WelcomeName -cne 'Alex+Sun' -or $saved.Preserved -ne 42){throw 'The actual settings save-button handler failed.'}
     Write-Output 'Windows personalization: Unicode save, preserved CodexPath, rejected invalid input PASS'
 } finally {if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary}}

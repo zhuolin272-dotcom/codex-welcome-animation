@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$WelcomeName,[string]$ConfigPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'config.json'))
+param([string]$WelcomeName,[switch]$TestUI,[string]$ConfigPath=(Join-Path (Split-Path $PSScriptRoot -Parent) 'config.json'))
 $ErrorActionPreference='Stop'
 function ConvertTo-WelcomeName([string]$Value) {
     $name=$Value.Normalize([Text.NormalizationForm]::FormC).Trim()
@@ -23,6 +23,7 @@ function Save-WelcomeName([string]$Value) {
     } finally { if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary} }
     return $name
 }
+if($TestUI -and -not $PSBoundParameters.ContainsKey('ConfigPath')) { throw 'UI tests require an explicit temporary ConfigPath.' }
 if($PSBoundParameters.ContainsKey('WelcomeName')) { Save-WelcomeName $WelcomeName; exit 0 }
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
@@ -32,10 +33,10 @@ $form.StartPosition='CenterScreen';$form.FormBorderStyle='FixedDialog';$form.Max
 $form.Font=New-Object Drawing.Font('Microsoft YaHei UI',10)
 $heading=New-Object Windows.Forms.Label
 $heading.Text='你希望欢迎动画如何称呼你？';$heading.Location=New-Object Drawing.Point(24,22);$heading.AutoSize=$true
-$input=New-Object Windows.Forms.TextBox
-$input.Location=New-Object Drawing.Point(26,62);$input.Size=New-Object Drawing.Size(426,32);$input.MaxLength=40
-$input.Text='JimmSun'
-if(Test-Path -LiteralPath $ConfigPath){$existing=Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json;if($existing.WelcomeName){$input.Text=$existing.WelcomeName}}
+$nameInput=New-Object Windows.Forms.TextBox
+$nameInput.Location=New-Object Drawing.Point(26,62);$nameInput.Size=New-Object Drawing.Size(426,32);$nameInput.MaxLength=40
+$nameInput.Text='JimmSun'
+if(Test-Path -LiteralPath $ConfigPath){$existing=Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json;if($existing.WelcomeName){$nameInput.Text=$existing.WelcomeName}}
 $hint=New-Object Windows.Forms.Label
 $hint.Text="1–20 个字符。英文字母连笔书写，中文平滑显字。`r`n保存后，5.1s 和 8.1s 两版同时生效。"
 $hint.Location=New-Object Drawing.Point(24,110);$hint.Size=New-Object Drawing.Size(432,52)
@@ -43,7 +44,8 @@ $save=New-Object Windows.Forms.Button
 $save.Text='保存';$save.Location=New-Object Drawing.Point(252,184);$save.Size=New-Object Drawing.Size(96,32)
 $cancel=New-Object Windows.Forms.Button
 $cancel.Text='取消';$cancel.Location=New-Object Drawing.Point(358,184);$cancel.Size=New-Object Drawing.Size(96,32);$cancel.DialogResult='Cancel'
-$save.Add_Click({try{[void](Save-WelcomeName $input.Text);$form.DialogResult='OK';$form.Close()}catch{[void][Windows.Forms.MessageBox]::Show($_.Exception.Message,'名字未保存')}})
-$form.Controls.AddRange(@($heading,$input,$hint,$save,$cancel));$form.AcceptButton=$save;$form.CancelButton=$cancel
-$form.Add_Shown({$input.SelectAll();$input.Focus()})
+$save.Add_Click({try{[void](Save-WelcomeName $nameInput.Text);$form.DialogResult='OK';$form.Close()}catch{[void][Windows.Forms.MessageBox]::Show($_.Exception.Message,'名字未保存')}})
+$form.Controls.AddRange(@($heading,$nameInput,$hint,$save,$cancel));$form.AcceptButton=$save;$form.CancelButton=$cancel
+$form.Add_Shown({$nameInput.SelectAll();$nameInput.Focus()})
+if($TestUI){$nameInput.Text='Alex+Sun';$form.Add_Shown({$save.PerformClick()})}
 [void]$form.ShowDialog();$form.Dispose()
