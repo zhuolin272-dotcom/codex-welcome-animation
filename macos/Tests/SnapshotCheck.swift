@@ -1,7 +1,8 @@
 import AppKit
 
 guard CommandLine.arguments.count == 2,
-      let image = NSBitmapImageRep(contentsOfFile: CommandLine.arguments[1]),
+      let data = try? Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])),
+      let image = NSBitmapImageRep(data: data),
       image.pixelsWide >= 100, image.pixelsHigh >= 100 else { fatalError("Missing startup first-frame image") }
 var count = 0, dark = 0, blue = 0, opaque = 0
 for row in 0..<24 {
