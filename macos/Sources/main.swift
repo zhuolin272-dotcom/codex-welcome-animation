@@ -256,6 +256,17 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         revealing = true
         polling?.invalidate()
         log("JELLY REVEAL begin")
+        // Put the real desktop in front while the opaque native cover still hides it.
+        // Otherwise the aperture would reveal Finder and switch to Codex only at the end.
+        if let app = codex {
+            app.activate(from: .current, options: [.activateAllWindows])
+            if maximize {
+                let application = AXUIElementCreateApplication(app.processIdentifier)
+                if let main = axAttribute(application, kAXMainWindowAttribute) {
+                    _ = AXUIElementPerformAction(main as! AXUIElement, kAXRaiseAction as CFString)
+                }
+            }
+        }
         webView.isHidden = true
         webView.stopLoading()
         revealStarted = ProcessInfo.processInfo.systemUptime
