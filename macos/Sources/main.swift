@@ -7,6 +7,7 @@ import WebKit
 private let arguments = Set(CommandLine.arguments.dropFirst())
 private let selfTest = arguments.contains("--self-test")
 private let variant = Bundle.main.object(forInfoDictionaryKey: "CWVariant") as? String ?? "fast"
+private let settingsMode = arguments.contains("--settings") || variant == "settings"
 private let paper = NSColor(srgbRed: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 1)
 private let welcomeFiles = FileManager.default
 private let support = welcomeFiles.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/CodexWelcome", isDirectory: true)
@@ -81,9 +82,16 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private var webIntroStarted: Double?
     private var lockFD: Int32 = -1
     private var docs: URL!
+    private var welcomeName = "JimmSun"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
+            if settingsMode { showNameSettings(); NSApp.terminate(nil); return }
+            let config = support.appendingPathComponent("config.json")
+            welcomeName = WelcomePreferences.name(at: config)
+            if selfTest, let override = CommandLine.arguments.first(where: { $0.hasPrefix("--welcome-name=") }) {
+                welcomeName = try WelcomePreferences.validatedName(String(override.dropFirst("--welcome-name=".count)))
+            }
             try welcomeFiles.createDirectory(at: support, withIntermediateDirectories: true)
             lockFD = Darwin.open(support.appendingPathComponent("launch.lock").path, O_CREAT | O_RDWR, 0o600)
             guard lockFD >= 0, flock(lockFD, LOCK_EX | LOCK_NB) == 0 else {
@@ -94,7 +102,9 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             guard let resources = Bundle.main.resourceURL else { throw failure("无法找到应用资源。请重新安装。") }
             docs = resources.appendingPathComponent("docs", isDirectory: true).resolvingSymlinksInPath()
             guard welcomeFiles.fileExists(atPath: docs.appendingPathComponent("animation.html").path),
-                  welcomeFiles.fileExists(atPath: docs.appendingPathComponent("vendor/gsap.min.js").path) else {
+                  welcomeFiles.fileExists(atPath: docs.appendingPathComponent("vendor/gsap.min.js").path),
+                  welcomeFiles.fileExists(atPath: docs.appendingPathComponent("glyphs.js").path),
+                  welcomeFiles.fileExists(atPath: docs.appendingPathComponent("personalize.js").path) else {
                 throw failure("动画资源不完整。请重新安装完整的 .app。")
             }
             if !selfTest {
@@ -132,9 +142,29 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         picker.allowsMultipleSelection = false
         picker.canChooseDirectories = false
         guard picker.runModal() == .OK, let chosen = picker.url else { throw failure("未选择 Codex.app。") }
-        let data = try JSONSerialization.data(withJSONObject: ["CodexPath": chosen.path], options: .prettyPrinted)
-        try data.write(to: config, options: .atomic)
+        try WelcomePreferences.set(chosen.path, forKey: "CodexPath", at: config)
         return chosen
+    }
+
+    private func showNameSettings() {
+        let config = support.appendingPathComponent("config.json")
+        let alert = NSAlert()
+        alert.messageText = "你希望欢迎动画如何称呼你？"
+        let hint = "1–20 个字符。英文字母连笔书写，中文平滑显字。保存后，5.1s 和 8.1s 两版同时生效。"
+        alert.informativeText = hint
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 340, height: 28))
+        input.stringValue = WelcomePreferences.name(at: config)
+        alert.accessoryView = input
+        alert.addButton(withTitle: "保存")
+        alert.addButton(withTitle: "取消")
+        NSApp.activate()
+        alert.window.initialFirstResponder = input
+        while alert.runModal() == .alertFirstButtonReturn {
+            do {
+                try WelcomePreferences.set(input.stringValue, forKey: "WelcomeName", at: config)
+                return
+            } catch { alert.informativeText = error.localizedDescription + "\n\n" + hint }
+        }
     }
 
     private func explainAccessibility() throws {
@@ -180,7 +210,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant)]
+        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName)]
         if selfTest { components.queryItems?.append(URLQueryItem(name: "motion-test", value: "1")) }
         webView.loadFileURL(components.url!, allowingReadAccessTo: docs)
     }
@@ -192,6 +222,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         let webClock = payload?["clock"] as? Double
         switch kind {
         case "ready":
+            if selfTest && payload?["name"] as? String != welcomeName { abort("Personalized name did not reach WebKit"); return }
             introStarted = ProcessInfo.processInfo.systemUptime
             webIntroStarted = webClock
             log("READY"); openCodex()

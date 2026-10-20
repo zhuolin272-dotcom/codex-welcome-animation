@@ -15,7 +15,7 @@ for ARCH in $ARCHS; do
     BINARY="$BUILD/CodexWelcome-$ARCH"
     /usr/bin/xcrun swiftc -swift-version 5 -O -sdk "$SDK" -target "$ARCH-apple-macosx14.0" \
         -framework AppKit -framework WebKit -framework ApplicationServices \
-        "$HERE/Sources/Geometry.swift" "$HERE/Sources/main.swift" -o "$BINARY"
+        "$HERE/Sources/Geometry.swift" "$HERE/Sources/Preferences.swift" "$HERE/Sources/main.swift" -o "$BINARY"
     BINARIES+=("$BINARY")
 done
 /usr/bin/lipo -create "${BINARIES[@]}" -output "$BUILD/CodexWelcome"
@@ -31,9 +31,9 @@ for SIZE in 16 32 128 256 512; do
 done
 /usr/bin/iconutil -c icns "$ICONSET" -o "$BUILD/OpenAI.icns"
 
-for MODE in fast full; do
-    if [[ "$MODE" == fast ]]; then LABEL='5.1s'; else LABEL='8.1s'; fi
-    APP="$PACKAGE/Codex ($LABEL).app"
+for MODE in fast full settings; do
+    case "$MODE" in fast) NAME='Codex (5.1s)';; full) NAME='Codex (8.1s)';; settings) NAME='Codex Settings';; esac
+    APP="$PACKAGE/$NAME.app"
     if [[ -e "$APP" ]]; then
         MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$APP/Contents/Info.plist" 2>/dev/null || true)"
         [[ "$MANAGED" == true ]] || { echo "Refusing to overwrite an unrelated app: $APP" >&2; exit 1; }
@@ -42,7 +42,7 @@ for MODE in fast full; do
     cp "$BUILD/CodexWelcome" "$APP/Contents/MacOS/CodexWelcome"
     chmod 755 "$APP/Contents/MacOS/CodexWelcome"
     cp "$BUILD/OpenAI.icns" "$APP/Contents/Resources/OpenAI.icns"
-    cp "$ROOT/docs/animation.html" "$APP/Contents/Resources/docs/animation.html"
+    cp "$ROOT/docs/animation.html" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
     cp "$ROOT/docs/vendor/gsap.min.js" "$APP/Contents/Resources/docs/vendor/gsap.min.js"
     cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -50,11 +50,11 @@ for MODE in fast full; do
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>CodexWelcome</string>
 <key>CFBundleIdentifier</key><string>io.github.zhuolin272-dotcom.codex-welcome.$MODE</string>
-<key>CFBundleName</key><string>Codex ($LABEL)</string>
-<key>CFBundleDisplayName</key><string>Codex ($LABEL)</string>
+<key>CFBundleName</key><string>$NAME</string>
+<key>CFBundleDisplayName</key><string>$NAME</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.1.0</string>
-<key>CFBundleVersion</key><string>110</string>
+<key>CFBundleShortVersionString</key><string>1.2.0</string>
+<key>CFBundleVersion</key><string>120</string>
 <key>CFBundleIconFile</key><string>OpenAI</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>

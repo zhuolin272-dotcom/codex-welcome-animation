@@ -1,6 +1,6 @@
 # Codex Welcome Animation
 
-为 Windows 和 macOS Codex 准备的一段个人欢迎动画：全屏蓝色云雾以果冻弹簧感收成小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome JimmSun**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
+为 Windows 和 macOS Codex 准备的一段个人欢迎动画：全屏蓝色云雾以果冻弹簧感收成小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome 你的名字**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
 
 ![蓝色云雾小球预览](assets/orb.png)
 
@@ -21,7 +21,7 @@
 
 1. 在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
-3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 两个快捷方式。日常使用第一个即可。
+3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
 两个快捷方式和启动程序使用白色 OpenAI Logo、透明背景的图标，内含 16 至 256 像素的 10 档尺寸。矢量源文件为 `assets/openai-transparent.svg`，可运行 `python tools/build_icon.py` 重新生成 PNG 和 ICO。
 
@@ -43,13 +43,25 @@ Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实�
 
 Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 
-- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.1.0-macos/Codex-Welcome-macOS-AppleSilicon.zip)。
-- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.1.0-macos/Codex-Welcome-macOS-universal.zip)。
-- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.1.0-macos)。
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.0/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.2.0/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.2.0)。
 
-下载并解压后，双击 `Install.command`，或直接把两个 `.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
+下载并解压后，双击 `Install.command`，或直接把两种速度和 `Codex Settings.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
 当前 Mac 构建为 ad-hoc 签名，未做 Developer ID 公证。完整安装、首次打开、权限和源码构建说明见 **[macOS 使用说明](macos/README.md)**。
+
+## 自定义欢迎名字
+
+不需要 Python、Node.js 或重新编译。名字保存在本机，5.1s 和 8.1s 共用同一份设置，更新安装会保留。
+
+- **Windows：**安装后打开桌面或开始菜单中的 **Codex Settings**，输入名字并保存。解压目录也可双击 `Settings.cmd`；这会设置该目录的预览/启动入口，已安装版本请用桌面设置入口。
+- **macOS：**打开 **Codex Settings.app**，输入名字并保存。安装器会连同两种速度一起安装，并创建桌面入口。
+- **网页预览：**点击底部 **名字** 按钮，保存并预览。网页设置保存在当前浏览器，和桌面启动器的设置各自独立。
+
+名字支持 **1–20 个字符**，自动居中并按宽度缩放。Sacramento 字体包含的拉丁字母、数字和标点沿用真实笔画遮罩的连笔动画；中文及字体未包含的字符使用系统字体、平滑逐字显现，不模拟不存在的连笔字形。更换名字不会改变两种速度的整体时长和果冻转场。
+
+本机配置字段为 `WelcomeName`：Windows 位于安装目录 `config.json`，Mac 位于 `~/Library/Application Support/CodexWelcome/config.json`。保存名字会保留 `CodexPath` 等其他配置，不修改已签名的 Mac `.app`。
 
 ## Windows 使用方式
 
@@ -111,16 +123,16 @@ https://zhuolin272-dotcom.github.io/codex-welcome-animation/?variant=full
 
 也可把 `docs/` 中的全部文件上传到任意静态托管服务；保留 `vendor/` 相对路径即可。
 
-## 修改欢迎词与开发
+## 开发与修改动画
 
-运行不需要 Python。只有重新生成字形时需要 Python 3 和开发依赖：
+日常修改名字请用上方设置入口。开发者修改字形素材或默认示例时，才需要 Python 3 和开发依赖：
 
 ```sh
 python -m pip install -r requirements-dev.txt
 python tools/build.py --name JimmSun --greeting welcome
 ```
 
-`--name` 和 `--greeting` 当前支持 Sacramento 字体包含的拉丁字符，建议使用简短文字以保持版式。字形生成结果保存在 `docs/animation.html`。修改动作、配色和着色器请编辑 `source/animation.template.html`，然后重新运行构建脚本；不要只修改生成文件。Windows 重新运行 `Install.cmd` 可将修改更新到本机安装目录；Mac 重新执行 `bash macos/build.sh` 后安装生成的 `.app`。
+构建参数 `--name` 和 `--greeting` 支持 Sacramento 字体包含的拉丁字符，建议使用简短文字以保持版式。字形生成结果保存在 `docs/animation.html`。修改动作、配色和着色器请编辑 `source/animation.template.html`，然后重新运行构建脚本；不要只修改生成文件。运行 `python tools/build_glyphs.py` 可重建离线可复用字库 `docs/glyphs.js`。Windows 重新运行 `Install.cmd` 可将修改更新到本机安装目录；Mac 重新执行 `bash macos/build.sh` 后安装生成的 `.app`。
 
 ```text
 docs/                         可离线运行、可静态部署的预览
@@ -135,8 +147,19 @@ Install.ps1 / Install.cmd      当前用户安装器
 tests/Smoke.ps1               两种速度的真实浏览器完成回调测试
 tests/Detection.ps1           桌面注册入口检测与 CLI 误识别回归检查
 tests/Handoff.ps1             展开面积与收尾边缘覆盖检查
+launcher/Settings.ps1          Windows 名字设置窗口及配置保存
+docs/personalize.js             安全 SVG 名字排版与手写/中文显现
+docs/glyphs.js                  已打包字形库，用户无需 Python
 assets/                       图标、字形源、预览图及许可证
 ```
+
+## 个性化开发检查
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Personalization.ps1
+```
+
+前端检查需要开发机安装 `playwright`，然后运行 `node tests/personalization.cjs`；覆盖拉丁/中文、最长名字缩放、输入安全、完整显字和浏览器保存。Mac 的 `bash macos/test.sh` 检查配置保存与验证，`bash macos/smoke.sh` 在原生 WebKit 中用中英文名字播放两种速度。
 
 ## 测试与排错
 

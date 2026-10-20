@@ -2,6 +2,7 @@
 param(
     [ValidateSet('fast','full')][string]$Variant = 'fast',
     [string]$CodexPath,
+    [string]$WelcomeName,
     [switch]$ValidateOnly,
     [switch]$TestMode
 )
@@ -20,7 +21,7 @@ function Find-Codex {
     if ($CodexPath) { return Get-DesktopTarget $CodexPath }
     $configPath = Join-Path $root 'config.json'
     if (Test-Path -LiteralPath $configPath) {
-        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+        $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($config.CodexPath -and (Test-Path -LiteralPath $config.CodexPath -PathType Leaf)) { return Get-DesktopTarget $config.CodexPath }
     }
     # The Store package may display as ChatGPT and use ChatGPT.exe. Match its
@@ -154,8 +155,13 @@ public static class WelcomeWindow {
     Add-Type -Path (Join-Path $PSScriptRoot 'HandoffOverlay.cs') -ReferencedAssemblies $overlayReferences
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
-    foreach ($file in @('docs\animation.html','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
-    if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));DesktopMaximized=($null -ne $desktop -and [WelcomeWindow]::IsZoomed($desktop.MainWindowHandle));DesktopStyle= $(if($desktop){'0x{0:X8}' -f [WelcomeWindow]::GetWindowLong($desktop.MainWindowHandle,-16)});Resources='OK'} | ConvertTo-Json; exit 0 }
+    if (-not $PSBoundParameters.ContainsKey('WelcomeName')) {
+        $nameConfig=Join-Path $root 'config.json'
+        if(Test-Path -LiteralPath $nameConfig) { $WelcomeName=(Get-Content -LiteralPath $nameConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName }
+    }
+    if(-not $WelcomeName){$WelcomeName='JimmSun'}
+    foreach ($file in @('docs\animation.html','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
+    if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));DesktopMaximized=($null -ne $desktop -and [WelcomeWindow]::IsZoomed($desktop.MainWindowHandle));DesktopStyle= $(if($desktop){'0x{0:X8}' -f [WelcomeWindow]::GetWindowLong($desktop.MainWindowHandle,-16)});Resources='OK'} | ConvertTo-Json; exit 0 }
     $created = $false
     $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
     $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
@@ -167,7 +173,7 @@ public static class WelcomeWindow {
     $profileName = if ($TestMode) {'browser-test-profile'} else {'browser-profile'}
     $profile = Join-Path $root $profileName
     Disable-AnimationTranslation $profile
-    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce"
+    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&name=$([Uri]::EscapeDataString($WelcomeName))"
     $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
     else { $browserArgs += @('--kiosk',$url,'--edge-kiosk-type=fullscreen') }
@@ -176,7 +182,7 @@ public static class WelcomeWindow {
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $window=[IntPtr]::Zero
     $desktopPrepared=$TestMode.IsPresent; $handoffReady=$false; $skipReveal=$false; $nextPreparation=0.0; $script:fullscreenExitRequestWindow=[IntPtr]::Zero
-    $routes = @{ '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
+    $routes = @{ '/glyphs.js'='docs\glyphs.js'; '/personalize.js'='docs\personalize.js'; '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
     Write-LaunchLog ("START variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
     while ($watch.Elapsed.TotalSeconds -lt 45 -and -not $handoffReady) {
         $browserProcess.Refresh()
@@ -243,7 +249,7 @@ public static class WelcomeWindow {
         Write-LaunchLog 'JELLY REVEAL complete'
     } else { if ($handoffOverlay) { $handoffOverlay.Dispose() }; Close-AnimationWindow }
     Start-Codex -Reveal -SkipLaunch:$codexStarted
-    if ($TestMode) { [pscustomobject]@{Variant=$Variant;Completed=$complete;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
+    if ($TestMode) { [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Completed=$complete;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
 }
 catch {
     Write-LaunchLog ('ERROR '+$_.Exception.Message)

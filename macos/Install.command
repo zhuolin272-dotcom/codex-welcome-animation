@@ -9,8 +9,7 @@ if [[ ! -d "$SOURCE/Codex (5.1s).app" ]]; then
 fi
 DESTINATION="$HOME/Applications"
 mkdir -p "$DESTINATION"
-for LABEL in 5.1s 8.1s; do
-    APP="Codex ($LABEL).app"
+for APP in 'Codex (5.1s).app' 'Codex (8.1s).app' 'Codex Settings.app'; do
     TARGET="$DESTINATION/$APP"
     if [[ -e "$TARGET" ]]; then
         MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$TARGET/Contents/Info.plist" 2>/dev/null || true)"
@@ -27,6 +26,6 @@ for LABEL in 5.1s 8.1s; do
         echo "保留现有桌面同名项目：$LINK"
     fi
 done
-echo '已安装：~/Applications/Codex (5.1s).app 和 Codex (8.1s).app'
+echo '已安装两种速度及 Codex Settings.app。先打开 Codex Settings 修改欢迎名字。'
 echo '请双击 5.1s 版启动。首次自动最大化需要在系统设置中允许辅助功能。'
 read -r -p '按回车关闭…' _

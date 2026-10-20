@@ -5,6 +5,7 @@ for LABEL in 5.1s 8.1s; do
     APP="$HERE/dist/Codex-Welcome-macOS/Codex ($LABEL).app"
     /usr/bin/codesign --verify --strict "$APP"
     "$APP/Contents/MacOS/CodexWelcome" --diagnose
-    # These runs never launch Codex or ask for Accessibility permission.
-    /usr/bin/perl -e 'alarm 40; exec @ARGV or die $!;' "$APP/Contents/MacOS/CodexWelcome" --self-test
+    if [[ "$LABEL" == 5.1s ]]; then TEST_NAME="Alex Sun"; else TEST_NAME="小明"; fi
+    # These runs verify custom names, never launch Codex or ask for Accessibility permission.
+    /usr/bin/perl -e 'alarm 40; exec @ARGV or die $!;' "$APP/Contents/MacOS/CodexWelcome" --self-test "--welcome-name=$TEST_NAME"
 done

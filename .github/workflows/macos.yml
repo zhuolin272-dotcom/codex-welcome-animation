@@ -5,8 +5,7 @@ on:
     branches: [main]
     paths:
       - 'macos/**'
-      - 'docs/animation.html'
-      - 'docs/vendor/**'
+      - 'docs/**'
       - 'assets/openai-transparent*.png'
       - '.github/workflows/macos.yml'
   workflow_dispatch:

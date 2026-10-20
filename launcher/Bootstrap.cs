@@ -12,15 +12,17 @@ internal static class CodexWelcomeBootstrap {
         string log = Path.Combine(logs, "bootstrap.log");
         bool test = Array.IndexOf(args, "--test") >= 0;
         bool validate = Array.IndexOf(args, "--validate") >= 0;
+        bool settings = Array.IndexOf(args, "--settings") >= 0;
         try {
             Directory.CreateDirectory(logs);
             string mode = args.Length > 0 && args[0] == "full" ? "full" : "fast";
             File.AppendAllText(log, DateTime.Now.ToString("o") + " ENTRY mode=" + mode + "\r\n");
-            string script = Path.Combine(root, "launcher\\Launch.ps1");
+            string script = Path.Combine(root, settings ? "launcher\\Settings.ps1" : "launcher\\Launch.ps1");
             if (!File.Exists(script)) throw new FileNotFoundException("Launcher is missing. Run Install.cmd again.", script);
             ProcessStartInfo start = new ProcessStartInfo();
             start.FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell\\v1.0\\powershell.exe");
-            start.Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + script + "\" -Variant " + mode;
+            start.Arguments = "-NoLogo -NoProfile -STA -NonInteractive -ExecutionPolicy Bypass -File \"" + script + "\"";
+            if (!settings) start.Arguments += " -Variant " + mode;
             if (test) start.Arguments += " -TestMode";
             if (validate) start.Arguments += " -ValidateOnly";
             start.WorkingDirectory = root;

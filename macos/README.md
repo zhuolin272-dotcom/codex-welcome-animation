@@ -11,13 +11,22 @@
 ## 安装和使用
 
 1. 从仓库 [Releases](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases) 下载 **macOS 安装包**，解压。
-2. 可以直接将 `Codex (5.1s).app` 和 `Codex (8.1s).app` 拖到你的“应用程序”文件夹；也可双击 `Install.command` 安装到 `~/Applications` 并创建桌面入口。
-3. 以后双击 **Codex (5.1s)** 即可，不需要打开终端。动画中按 **Esc** 可跳过。
-4. 默认查找 `/Applications/Codex.app` 和 `~/Applications/Codex.app`；找不到时会让你选择 Codex 桌面应用，并保存路径。
+2. 可以直接将 `Codex (5.1s).app`、`Codex (8.1s).app` 和 `Codex Settings.app` 拖到你的“应用程序”文件夹；也可双击 `Install.command` 安装到 `~/Applications` 并创建桌面入口。
+3. 先打开 **Codex Settings.app** 设置欢迎名字，保存后两种速度同时生效。支持 1–20 个字符；英文字母连笔书写，中文使用系统字体平滑显字。
+4. 以后双击 **Codex (5.1s)** 即可，不需要打开终端。动画中按 **Esc** 可跳过。
+5. 默认查找 `/Applications/Codex.app` 和 `~/Applications/Codex.app`；找不到时会让你选择 Codex 桌面应用，并保存路径。
 
 图标沿用透明背景、白色 OpenAI Logo，适配 Retina 分辨率。
 
 安装包使用 **ad-hoc 本地签名**，目前未做 Apple Developer ID 签名或公证。因此“编译通过/签名校验通过”不代表 Gatekeeper 已认可开发者。下载的应用首次打开若被拦截，应按 [Apple 官方的应用打开流程](https://support.apple.com/en-us/102445) 人工确认；不需要关闭系统安全功能。也可以在自己的 Mac 上从源码构建。重新签名或更新后，辅助功能权限可能需要重新确认。
+
+## 自定义名字与更新
+
+随时打开 **Codex Settings.app** 修改名字。设置保存在 `~/Library/Application Support/CodexWelcome/config.json` 的 `WelcomeName` 字段，两种速度共用，重装/更新会保留。修改名字不触碰签名后的 `.app`，不需要开发工具。保存时会保留已选择的 `CodexPath`。
+
+名字自动居中，长名字会等比缩小；拉丁字母、数字和字体包含的标点使用离线打包的真实笔画。中文或其他未包含的字符使用系统字体逐字平滑显现，欢迎词和转场的整体时长保持一致。
+
+网页预览底部的「名字」只保存网页预览设置，桌面版本请用本节原生设置入口。
 
 ## 最大化与权限
 
@@ -60,7 +69,7 @@ Windows 环境只能检查共享网页与源码结构，不能编译 AppKit/WebK
 - 日志：`~/Library/Logs/CodexWelcome/fast.log`、`full.log`。
 - 配置：`~/Library/Application Support/CodexWelcome/config.json`，其中 `CodexPath` 可指定桌面 `.app` 路径。
 - 若自动最大化停住，确认辅助功能权限、Codex 是否有阻塞对话框，以及是否正在切换系统全屏空间。
-- `Uninstall.command` 只移除本项目创建的桌面链接。随后可用 Finder 将 `~/Applications` 内的两版欢迎应用移到废纸篓；不会删除真正的 Codex。
+- `Uninstall.command` 只移除本项目创建的桌面链接。随后可用 Finder 将 `~/Applications` 内的两版欢迎应用与 `Codex Settings.app` 移到废纸篓；不会删除真正的 Codex。
 
 ## 设计与分发
 
