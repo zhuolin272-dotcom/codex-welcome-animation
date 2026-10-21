@@ -29,6 +29,13 @@ if ($CodexPath) {
 }
 $validation = & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $destination 'launcher\Launch.ps1') -ValidateOnly
 if ($LASTEXITCODE -ne 0) { throw 'Installation files copied, but Edge/Codex detection failed. Retry with -CodexPath.' }
+$detected=$validation | ConvertFrom-Json
+if($detected.CodexKind -eq 'app') {
+    $configPath=Join-Path $destination 'config.json'
+    $config=if(Test-Path -LiteralPath $configPath){Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json}else{[pscustomobject]@{}}
+    $config | Add-Member -NotePropertyName CodexAppId -NotePropertyValue $detected.Codex -Force
+    $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $configPath -Encoding UTF8
+}
 $shell=New-Object -ComObject WScript.Shell
 $shortcutNames=@('Codex (5.1s).lnk','Codex (8.1s).lnk','Codex Settings.lnk')
 $locations=@([Environment]::GetFolderPath('Desktop'),(Join-Path ([Environment]::GetFolderPath('Programs')) 'Codex Welcome'))

@@ -58,13 +58,18 @@ try {
  $rainChanged=[NativeOrbPixels]::Changes($rainFirst,$rainSecond)
  if([NativeOrbPixels]::White($rainFirst) -lt 40 -or $rainChanged -lt 100){throw 'The opening rain did not move before the orb'}
  if([NativeOrbPixels]::Blue($rainFirst) -gt 0){throw 'The orb appeared before the rain'}
- $opening.BeginHandoff()
+ # Simulate a backend that is not ready: rain must still finish at two seconds.
+ while($watch.Elapsed.TotalSeconds -lt 1.05){Start-Sleep -Milliseconds 5}
+ if($opening.RainFill -lt .35 -or $opening.RainFill -gt .8){throw 'Rain is not filling progressively before backend readiness'}
  while(-not $opening.IsOrbVisible -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 5}
+ if($watch.Elapsed.TotalSeconds -gt 2.5 -or $opening.RainFill -ne 1){throw 'Rain did not finish within two seconds independently of backend readiness'}
  $first=[NativeOrbPixels]::Read($opening)
  Start-Sleep -Milliseconds 75
  $moving=[NativeOrbPixels]::Read($opening)
  $changed=[NativeOrbPixels]::Changes($first,$moving)
  if([NativeOrbPixels]::Blue($first) -lt 1000 -or $changed -lt 100){throw "Cloud texture did not flow after rain: $changed changed pixels"}
+ if($opening.IsCollapsed){throw 'Orb collapsed before the backend was ready'}
+ $opening.BeginHandoff()
  while(-not $opening.IsCollapsed -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
  if(-not $opening.IsCollapsed){throw 'Native orb never disappeared'}
  if([NativeOrbPixels]::Blue([NativeOrbPixels]::Read($opening)) -ne 0){throw 'Visible blue pixels remain at the browser handoff'}

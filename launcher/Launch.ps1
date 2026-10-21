@@ -25,6 +25,9 @@ function Find-Codex {
     if (Test-Path -LiteralPath $configPath) {
         $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($config.CodexPath -and (Test-Path -LiteralPath $config.CodexPath -PathType Leaf)) { return Get-DesktopTarget $config.CodexPath }
+        # Installation resolves the Store identity once. Get-StartApps can block
+        # for tens of seconds while Windows refreshes its entire Start menu.
+        if ($config.CodexAppId -match '^OpenAI\.Codex_[A-Za-z0-9]+![A-Za-z0-9.]+$') { return @{Kind='app';Path=$config.CodexAppId} }
     }
     # The Store package may display as ChatGPT and use ChatGPT.exe. Match its
     # registered identity, never the CLI backend in LocalAppData/OpenAI/Codex/bin.
@@ -132,7 +135,9 @@ try {
         Write-LaunchLog 'RAIN visible; background prepares logo while particles fall'
     }
     $edge = Find-Edge
+    $discoveryWatch=[Diagnostics.Stopwatch]::StartNew()
     $target = if ($verificationOnly) { @{Kind='test';Path='none'} } else { Find-Codex }
+    Write-LaunchLog ('TARGET resolved in {0}ms' -f [Math]::Round($discoveryWatch.Elapsed.TotalMilliseconds))
     if (-not $PSBoundParameters.ContainsKey('WelcomeName')) {
         $nameConfig=Join-Path $root 'config.json'
         if(Test-Path -LiteralPath $nameConfig) { $WelcomeName=(Get-Content -LiteralPath $nameConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName }
@@ -186,7 +191,7 @@ try {
         if($startupCover -and $startupCover.Failure){throw $startupCover.Failure}
         if($prepared -and ($TestMode -or $topmost) -and $startupPhase -eq 'waiting'){$startupPhase='prepare'}
         if($presented -and $startupPhase -eq 'prepare'){
-            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'RAIN fills down; quick blue orb then invisible logo handoff'}
+            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'BACKEND ready; opening continues at its fixed 2s rain deadline'}
         }
         if($startupPhase -eq 'collapsing' -and $startupCover.IsCollapsed){$startupPhase='play';Write-LaunchLog ("LIVE ORB collapsed after {0} moving frames; continue with logo" -f $startupCover.MotionFrames)}
         if($ready -and $startupCover -and -not $startupCover.IsComplete){$startupCover.Dismiss()}

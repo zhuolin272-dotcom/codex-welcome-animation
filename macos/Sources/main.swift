@@ -69,6 +69,7 @@ private final class StartupOrbView: NSView {
     private let washMask = CAGradientLayer()
     private let rainDrop = CAEmitterCell()
     private var preparing = false
+    private var fillStarted = false
     private var orbShownAt = 0.0
     var rainIsActive: Bool { !preparing && rain.birthRate > 0 && orb.opacity == 0 }
     private let visibleAt = CACurrentMediaTime()
@@ -144,44 +145,47 @@ private final class StartupOrbView: NSView {
         rain.emitterCells = [rainDrop]
         wash.frame = bounds
         washMask.position = CGPoint(x: bounds.midX, y: bounds.height)
-        washMask.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: preparing ? bounds.height * 1.2 + 80 : 0)
+        washMask.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: fillStarted ? bounds.height * 1.2 + 80 : 0)
         orb.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
         orb.position = CGPoint(x: bounds.midX, y: bounds.midY)
         orb.cornerRadius = diameter / 2
         CATransaction.commit()
     }
-    func prepareForContent(completion: @escaping () -> Void) {
-        guard !preparing else { return }
-        let delay = max(0, 0.65 - (CACurrentMediaTime() - visibleAt))
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+    func startRainFill() {
+        guard !fillStarted else { return }
+        fillStarted = true
+        let height = bounds.height * 1.2 + 80
+        let fill = CABasicAnimation(keyPath: "bounds.size.height")
+        fill.fromValue = 0
+        fill.toValue = height
+        fill.beginTime = CACurrentMediaTime() + 0.15
+        fill.duration = 1.85
+        fill.fillMode = .backwards
+        fill.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        washMask.bounds.size.height = height
+        CATransaction.commit()
+        washMask.add(fill, forKey: "rain-fill")
+        // This deadline belongs to the opening, not WebKit's ready callback.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self = self else { return }
-            self.preparing = true
-            let height = self.bounds.height * 1.2 + 80
-            let fill = CABasicAnimation(keyPath: "bounds.size.height")
-            fill.fromValue = 0
-            fill.toValue = height
-            fill.duration = 0.18
-            fill.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            self.washMask.bounds.size.height = height
+            self.rain.birthRate = 0
+            self.rain.opacity = 0
             self.orb.opacity = 1
-            CATransaction.commit()
-            self.washMask.add(fill, forKey: "rain-fill")
             let appear = CABasicAnimation(keyPath: "opacity")
             appear.fromValue = 0
             appear.toValue = 1
-            appear.beginTime = CACurrentMediaTime() + 0.1
             appear.duration = 0.08
-            appear.fillMode = .backwards
             self.orb.add(appear, forKey: "rain-orb")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self.rain.birthRate = 0
-                self.rain.opacity = 0
-                self.orbShownAt = CACurrentMediaTime()
-                completion()
-            }
+            self.orbShownAt = CACurrentMediaTime()
         }
+    }
+    func prepareForContent(completion: @escaping () -> Void) {
+        guard !preparing else { return }
+        preparing = true
+        let delay = max(0, 2.12 - (CACurrentMediaTime() - visibleAt))
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { completion() }
     }
     func collapse(speed: Double, completion: @escaping () -> Void) {
         guard !collapsing else { return }
@@ -361,6 +365,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         window.displayIfNeeded()
         CATransaction.flush()
         if selfTest && !nativeOrb.rainIsActive { abort("Rain did not start before WebKit"); return }
+        nativeOrb.startRainFill()
         log("RAIN native visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; WebKit warming behind it")
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()

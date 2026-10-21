@@ -59,6 +59,7 @@ namespace CodexWelcome {
         public int MotionFrames { get { return frames; } }
         public string BrowserPreparation { get { return browserPreparation; } }
         public double FirstFrameMilliseconds { get { return firstFrameMilliseconds; } }
+        public double RainFill { get { return Math.Max(0,Math.Min(1,(animation.Elapsed.TotalSeconds-.15)/1.85)); } }
         public bool IsOrbVisible { get { return rainEndAt>=0 && animation.Elapsed.TotalSeconds-rainEndAt>=.18 && !collapsed; } }
         public StartupCover(string path,double playbackSpeed) {
             imagePath=path;speed=playbackSpeed;
@@ -110,17 +111,19 @@ namespace CodexWelcome {
         private void Render(object sender,EventArgs e) {
             double t=animation.Elapsed.TotalSeconds;
             if(lastRender>=0 && t-lastRender<1.0/60)return;lastRender=t;
-            if(handoffRequested && atlasReady && rainEndAt<0 && t>=.65)rainEndAt=t;
+            // Rain always fills in two seconds, independently of backend ready.
+            // A slow browser can only extend the flowing orb, never the rain.
+            if(atlasReady && rainEndAt<0 && t>=2.0)rainEndAt=t;
             double stage=rainEndAt<0?-1:t-rainEndAt;
-            rain.Time=t;rain.Fill=stage<0?0:Math.Min(1,stage/.18);rain.InvalidateVisual();
-            cloud.Opacity=stage<.1?0:Math.Min(1,(stage-.1)/.08);
+            rain.Time=t;rain.Fill=RainFill;rain.InvalidateVisual();
+            cloud.Opacity=stage<0?0:Math.Min(1,stage/.08);
             int frame=(int)(t*60)%64;
             if(frame!=lastFrame){texture.Viewbox=new Rect(frame%8*256,frame/8*256,256,256);lastFrame=frame;frames++;}
             double jelly=.014*Math.Sin(t*5);
-            if(stage>=.43 && collapseAt<0)collapseAt=t;
+            if(handoffRequested && stage>=.22 && collapseAt<0)collapseAt=t;
             double p=collapseAt<0?0:Math.Min(1,(t-collapseAt)/(.22/speed));
             double scale=1-(Math.Pow(2,10*p)-1)/1023;
-            double grow=stage<0?0:Math.Min(1,Math.Max(0,(stage-.1)/.12));grow=1-Math.Pow(1-grow,3);
+            double grow=stage<0?0:Math.Min(1,stage/.12);grow=1-Math.Pow(1-grow,3);
             breathing.ScaleX=grow*scale*(1+jelly);breathing.ScaleY=grow*scale/(1+jelly);
             if(p>=1)collapsed=true;
             if(!ready){firstFrameMilliseconds=created.Elapsed.TotalMilliseconds;ready=true;return;}

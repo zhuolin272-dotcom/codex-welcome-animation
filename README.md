@@ -11,7 +11,7 @@
 | **5.1 秒 · 推荐（沿用入口名）** | 桌面 2×；网页 1.6× | 桌面 Logo 后约 3.19 秒；网页 5.0625 秒 | 桌面 1.75 秒 | Windows：`Launch-5.1s.cmd`；Mac：`Codex (5.1s).app` |
 | **8.1 秒 · 完整（沿用入口名）** | 桌面 1.15×；网页 1× | 桌面 Logo 后约 5.55 秒；网页 8.1 秒 | 桌面约 3.04 秒 | Windows：`Launch-8.1s.cmd`；Mac：`Codex (8.1s).app` |
 
-v1.5.0 加快桌面节奏，保留原快捷方式和 App 名称作为兼容入口，名称不再代表新版从双击开始的精确耗时。粒子雨幕与后台准备重叠，准备完成后约半秒内接入 Logo；最后推荐版约 0.8 秒、完整版约 0.95 秒展开 Codex。总时间取决于电脑的启动状态。网页预览保留原 5.1s / 8.1s 基础时间线，不包含系统原生粒子雨幕。
+v1.5.1 加快桌面节奏，保留原快捷方式和 App 名称作为兼容入口，名称不再代表新版从双击开始的精确耗时。粒子雨幕固定在 2 秒内由上至下铺成不透明浅色背景，然后快速接入中央蓝球与 Logo；后台与开场并行准备。最后推荐版约 0.8 秒、完整版约 0.95 秒展开 Codex。总时间取决于电脑的启动状态。网页预览保留原 5.1s / 8.1s 基础时间线，不包含系统原生粒子雨幕。
 
 动画按实际窗口尺寸等比缩放并居中，支持不同分辨率、宽高比例和 Windows 显示缩放。蓝球与旋转 Logo 从中心出现，之后 Logo 按设计向上弹射，为欢迎词留出空间。
 
@@ -19,7 +19,7 @@ v1.5.0 加快桌面节奏，保留原快捷方式和 App 名称作为兼容入�
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.5.0 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.0/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.5.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -43,9 +43,9 @@ Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实�
 
 Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 
-- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.0/Codex-Welcome-macOS-AppleSilicon.zip)。
-- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.0/Codex-Welcome-macOS-universal.zip)。
-- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.5.0)。
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.1/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.1/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.5.1)。
 
 下载并解压后，双击 `Install.command`，或直接把两种速度和 `Codex Settings.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
@@ -101,9 +101,11 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 ## 启动首帧与闪烁修复
 
-双击后先显示**透明背景上的白色雨滴粒子**，从屏幕上方向下落下并逐渐铺满。后台同时加载浏览器、欢迎名字和 Logo。准备完成后，雨幕向下收成浅色画面，迅速接入短暂的中央蓝球，再继续 Logo 和连笔欢迎词，不用盯着静态小球等待。
+双击后先显示**透明背景上的白色雨滴粒子**，从屏幕上方向下落下并逐渐铺满。后台同时加载浏览器、欢迎名字和 Logo。雨幕独立于浏览器就绪信号，在 2 秒内逐渐铺成浅色画面，迅速接入中央蓝球，再继续 Logo 和连笔欢迎词，不用盯着静态小球等待。
 
-Windows 原生 EXE 直接创建粒子窗口，早于 PowerShell 和浏览器启动。云雾纹理在后台线程解码，避免阻塞粒子；后台通过仅当前用户可访问的本机命名管道操作**同一个**动画窗口，不重复创建开场。Mac 使用原生 Core Animation 粒子层，WebKit 在屏幕外准备，待雨幕填充成不透明画面后接入。
+Windows 原生 EXE 直接创建粒子窗口，早于 PowerShell 和浏览器启动。云雾纹理在后台线程解码，避免阻塞粒子；后台通过仅当前用户可访问的本机命名管道操作**同一个**动画窗口，不重复创建开场。Mac 使用原生 Core Animation 粒子层，WebKit 在屏幕外准备。两个平台的雨幕都采用固定 2 秒计时，不再无限等待后端；遇到特别慢的浏览器冷启动，继续流动的蓝球只会短暂延长，准备好后再交给 Logo。
+
+Windows 安装时保存 Codex 的 Store 应用标识，启动直接使用缓存，避免每次 `Get-StartApps` 扫描应用列表造成 11–25 秒等待。重新安装会生成缓存，并保留欢迎名字。
 
 推荐版的 Logo / 书写节奏从 1.6× 提升到 2×，完整版从 1× 提升到 1.15×；原生蓝球只短暂停留。两个版本的片尾展开分别缩短到约 0.8 秒与 0.95 秒。名字、无标题栏、防闪烁和 Codex 最大化设置保留。
 

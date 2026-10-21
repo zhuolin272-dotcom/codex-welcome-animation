@@ -19,9 +19,12 @@ namespace CodexWelcome {
         protected override void OnRender(DrawingContext context) {
             double w=ActualWidth,h=ActualHeight;if(w<=0 || h<=0)return;
             context.PushClip(new RectangleGeometry(new Rect(0,0,w,h)));
-            double fill=Smooth(Fill),fade=1-Smooth((Fill-.35)/.65);
+            double fill=Smooth(Fill),fade=1-Smooth((Fill-.85)/.15);
             context.DrawRectangle(new SolidColorBrush(Color.FromArgb((byte)(30*Smooth(Time/.12)*(1-fill)),0,0,0)),null,new Rect(0,0,w,h));
-            if(fill>0) {
+            // The solid field grows behind the falling front, hiding the desktop
+            // from top to bottom instead of looping sparse dots indefinitely.
+            if(fill>=1) context.DrawRectangle(new SolidColorBrush(Paper),null,new Rect(0,0,w,h));
+            else if(fill>0) {
                 double front=(h+100)*fill;
                 LinearGradientBrush wash=new LinearGradientBrush(Paper,Color.FromArgb(0,247,246,242),new Point(0,Math.Max(0,front-72)),new Point(0,front));
                 wash.MappingMode=BrushMappingMode.Absolute;
