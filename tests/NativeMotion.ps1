@@ -1,3 +1,4 @@
+param([switch]$LoadOnly)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 & (Join-Path $root 'launcher\BuildNative.ps1')
@@ -11,6 +12,8 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Controls;
+using System.IO;
 public static class NativeOrbPixels {
  public static byte[] Read(CodexWelcome.StartupCover opening) {
   FrameworkElement canvas=(FrameworkElement)typeof(CodexWelcome.StartupCover).GetField("canvas",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(opening);
@@ -30,21 +33,40 @@ public static class NativeOrbPixels {
  public static int Blue(byte[] pixels) {
   int blue=0;for(int i=0;i<pixels.Length;i+=4)if(pixels[i]>pixels[i+2]+8)blue++;return blue;
  }
+ public static int White(byte[] pixels) {
+  int count=0;for(int i=0;i<pixels.Length;i+=4)if(pixels[i]>200&&pixels[i+1]>200&&pixels[i+2]>200)count++;return count;
+ }
+ public static void RenderRain(string path,double time,double fill) {
+  Grid root=new Grid { Width=640,Height=400,Background=new SolidColorBrush(Color.FromRgb(30,34,41)) };
+  root.Children.Add(new CodexWelcome.RainCurtain {Time=time,Fill=fill});
+  root.Measure(new Size(640,400));root.Arrange(new Rect(0,0,640,400));root.UpdateLayout();
+  RenderTargetBitmap image=new RenderTargetBitmap(640,400,96,96,PixelFormats.Pbgra32);image.Render(root);
+  PngBitmapEncoder encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(image));using(FileStream output=File.Create(path))encoder.Save(output);
+ }
 }
 '@
-$opening=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),1.6
+if($LoadOnly){return}
+$opening=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),2.0
 try {
  $watch=[Diagnostics.Stopwatch]::StartNew()
  while(-not $opening.IsReady -and -not $opening.Failure -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
  if($opening.Failure -or -not $opening.IsReady){throw 'Native opening did not appear'}
- $first=[NativeOrbPixels]::Read($opening)
+ Start-Sleep -Milliseconds 120
+ $rainFirst=[NativeOrbPixels]::Read($opening)
  Start-Sleep -Milliseconds 180
+ $rainSecond=[NativeOrbPixels]::Read($opening)
+ $rainChanged=[NativeOrbPixels]::Changes($rainFirst,$rainSecond)
+ if([NativeOrbPixels]::White($rainFirst) -lt 40 -or $rainChanged -lt 100){throw 'The opening rain did not move before the orb'}
+ if([NativeOrbPixels]::Blue($rainFirst) -gt 0){throw 'The orb appeared before the rain'}
+ $opening.BeginHandoff()
+ while(-not $opening.IsOrbVisible -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 5}
+ $first=[NativeOrbPixels]::Read($opening)
+ Start-Sleep -Milliseconds 75
  $moving=[NativeOrbPixels]::Read($opening)
  $changed=[NativeOrbPixels]::Changes($first,$moving)
- if([NativeOrbPixels]::Blue($first) -lt 1000 -or $changed -lt 100){throw "Cloud texture did not flow: $changed changed pixels"}
- $opening.BeginHandoff()
+ if([NativeOrbPixels]::Blue($first) -lt 1000 -or $changed -lt 100){throw "Cloud texture did not flow after rain: $changed changed pixels"}
  while(-not $opening.IsCollapsed -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
  if(-not $opening.IsCollapsed){throw 'Native orb never disappeared'}
  if([NativeOrbPixels]::Blue([NativeOrbPixels]::Read($opening)) -ne 0){throw 'Visible blue pixels remain at the browser handoff'}
- Write-Output "Native pixel check PASS: $changed cloud pixels changed; $($opening.MotionFrames) moving frames; zero blue pixels at handoff."
+ Write-Output "Native pixel check PASS: $rainChanged rain pixels changed before orb; $changed cloud pixels changed; zero blue pixels at handoff; first frame $([Math]::Round($opening.FirstFrameMilliseconds))ms."
 } finally { $opening.Dispose() }
