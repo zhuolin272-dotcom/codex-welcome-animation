@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -39,6 +40,10 @@ namespace CodexWelcome {
         private RainCurtain rain;
         private readonly Stopwatch created=Stopwatch.StartNew();
         private volatile bool atlasReady;
+        private readonly object chunkGate=new object();
+        private readonly Dictionary<int,BitmapSource> chunks=new Dictionary<int,BitmapSource>();
+        private readonly HashSet<int> requested=new HashSet<int>();
+        private int currentChunk=-1,lateFrames,flightFrames;
         private double rainEndAt=-1,lastRender=-1,firstFrameMilliseconds;
         private readonly double speed;
         private readonly bool dark;
@@ -62,6 +67,8 @@ namespace CodexWelcome {
         public double FirstFrameMilliseconds { get { return firstFrameMilliseconds; } }
         public double RainFill { get { return Math.Max(0,Math.Min(1,animation.Elapsed.TotalSeconds/1.6)); } }
         public bool IsTunnelReady { get { return atlasReady; } }
+        public int FlightFrames { get { return flightFrames; } }
+        public int StreamingDelays { get { return lateFrames; } }
         public bool IsOrbVisible { get { return rainEndAt>=0 && animation.Elapsed.TotalSeconds-rainEndAt>=.18 && !collapsed; } }
         public StartupCover(string path,double playbackSpeed):this(path,playbackSpeed,false) {}
         public StartupCover(string path,double playbackSpeed,bool darkTheme) {
@@ -79,10 +86,10 @@ namespace CodexWelcome {
                 canvas=new Canvas { ClipToBounds=true, Background=Brushes.Transparent };
                 rain=new RainCurtain {Dark=dark};canvas.Children.Add(rain);
                 breathing=new ScaleTransform(1,1);
-                texture=new ImageBrush { ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,256,256),Stretch=Stretch.Fill };
+                texture=new ImageBrush { ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,512,512),Stretch=Stretch.Fill };
                 cloud=new Ellipse { Fill=texture,Opacity=0,RenderTransform=breathing,RenderTransformOrigin=new Point(.5,.5) };canvas.Children.Add(cloud);
                 window=new Window { Title="Codex Welcome Startup",WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,
-                    AllowsTransparency=true,Background=Brushes.Transparent,ShowInTaskbar=false,ShowActivated=false,Topmost=true,Opacity=0,
+                    AllowsTransparency=false,Background=new SolidColorBrush(dark?Color.FromRgb(5,6,9):Color.FromRgb(247,246,242)),ShowInTaskbar=false,ShowActivated=false,Topmost=true,Opacity=0,
                     Width=800,Height=600,Content=canvas };
                 window.Closed+=delegate { complete=true;dispatcher.BeginInvokeShutdown(DispatcherPriority.Background); };
                 window.SourceInitialized+=delegate { int disable=1;DwmSetWindowAttribute(new WindowInteropHelper(window).Handle,3,ref disable,4); };
@@ -95,14 +102,27 @@ namespace CodexWelcome {
                 ThreadPool.QueueUserWorkItem(delegate {
                     try {
                         BitmapImage image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.UriSource=new Uri(imagePath);image.EndInit();image.Freeze();
-                        string tunnelPath=System.IO.Path.Combine(System.IO.Directory.GetParent(System.IO.Path.GetDirectoryName(imagePath)).FullName,"docs",dark?"tunnel-dark.png":"tunnel-light.png");
+                        string tunnelPath=TunnelPath(0);
                         BitmapImage tunnel=new BitmapImage();tunnel.BeginInit();tunnel.CacheOption=BitmapCacheOption.OnLoad;tunnel.UriSource=new Uri(tunnelPath);tunnel.EndInit();tunnel.Freeze();
-                        if(!complete)dispatcher.BeginInvoke(new Action(delegate {texture.ImageSource=image;rain.Atlas=tunnel;atlasReady=true;animation.Restart();lastRender=-1;}));
+                        if(!complete)dispatcher.BeginInvoke(new Action(delegate {texture.ImageSource=image;rain.Atlas=tunnel;currentChunk=0;atlasReady=true;animation.Restart();lastRender=-1;LoadChunk(1);}));
                     } catch(Exception error){if(!complete)failure=error.Message;}
                 });
                 Dispatcher.Run();
             } catch(Exception error){failure=error.Message;complete=true;}
             finally { CompositionTarget.Rendering-=Render;if(window!=null && window.IsVisible)window.Close(); }
+        }
+        private string TunnelPath(int index) {
+            return System.IO.Path.Combine(System.IO.Directory.GetParent(System.IO.Path.GetDirectoryName(imagePath)).FullName,"docs",String.Format("tunnel-{0}-{1:00}.png",dark?"dark":"light",index));
+        }
+        private void LoadChunk(int index) {
+            if(index>5||complete||rainEndAt>=0)return;
+            lock(chunkGate){if(!requested.Add(index))return;}
+            ThreadPool.QueueUserWorkItem(delegate {
+                try {
+                    BitmapImage image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.UriSource=new Uri(TunnelPath(index));image.EndInit();image.Freeze();
+                    lock(chunkGate){if(!complete&&rainEndAt<0&&index>=currentChunk)chunks[index]=image;}
+                }catch(Exception error){if(!complete)failure=error.Message;}
+            });
         }
         private void LayoutCloud() {
             if(window==null || cloud==null)return;
@@ -115,14 +135,26 @@ namespace CodexWelcome {
         }
         private void Render(object sender,EventArgs e) {
             double t=animation.Elapsed.TotalSeconds;
-            if(lastRender>=0 && t-lastRender<1.0/60)return;lastRender=t;
+            // Quantize absolute time, not time since the last render: the latter
+            // accidentally turns 144 Hz into 48 fps when capped to 60 fps.
+            if(lastRender>=0 && (int)(t*120)==(int)(lastRender*120))return;lastRender=t;
             // Flight, focus, bloom, collapse: all measured on the same clock.
             if(atlasReady && rainEndAt<0 && t>=1.6)rainEndAt=t;
             double stage=rainEndAt<0?-1:t-rainEndAt;
             rain.Time=t;rain.Fill=RainFill;rain.InvalidateVisual();
+            if(atlasReady&&t<1.6) {
+                flightFrames++;
+                int target=Math.Min(5,(int)(t*120)/32);
+                if(target!=currentChunk) {
+                    BitmapSource next=null;
+                    lock(chunkGate){if(chunks.TryGetValue(target,out next)){chunks.Remove(target);chunks.Remove(currentChunk);}}
+                    if(next!=null){rain.Atlas=next;currentChunk=target;LoadChunk(target+1);}else{lateFrames++;LoadChunk(target);}
+                }
+                rain.Frame=currentChunk==target?(int)(t*120)%32:31;
+            }else if(atlasReady&&rain.Atlas!=null){rain.Atlas=null;lock(chunkGate){chunks.Clear();}}
             cloud.Opacity=stage<0?0:Math.Min(1,stage/.18);
-            int frame=(int)(t*60)%64;
-            if(frame!=lastFrame){texture.Viewbox=new Rect(frame%8*256,frame/8*256,256,256);lastFrame=frame;frames++;}
+            int frame=(int)(t*120)%128;
+            if(frame!=lastFrame){texture.Viewbox=new Rect(frame%8*512,frame/8*512,512,512);lastFrame=frame;frames++;}
             double jelly=.014*Math.Sin(t*5);
             if(handoffRequested && stage>=.54 && collapseAt<0)collapseAt=t;
             double p=collapseAt<0?0:Math.Min(1,(t-collapseAt)/(.22/speed));

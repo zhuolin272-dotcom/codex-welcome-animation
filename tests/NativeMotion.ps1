@@ -79,5 +79,5 @@ try {
  while(-not $opening.IsCollapsed -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
  if(-not $opening.IsCollapsed){throw 'Native orb never disappeared'}
  if([NativeOrbPixels]::Blue([NativeOrbPixels]::Read($opening)) -ne 0){throw 'Visible blue pixels remain at the browser handoff'}
- Write-Output "Native pixel check PASS: $rainChanged rain pixels changed before orb; $changed cloud pixels changed; zero blue pixels at handoff; first frame $([Math]::Round($opening.FirstFrameMilliseconds))ms."
+ Write-Output "Native pixel check PASS: $rainChanged rain pixels changed before orb; $changed cloud pixels changed; zero blue pixels at handoff; first frame $([Math]::Round($opening.FirstFrameMilliseconds))ms; flight $($opening.FlightFrames) renders/1.6s; streaming delays $($opening.StreamingDelays)."
 } finally { $opening.Dispose() }

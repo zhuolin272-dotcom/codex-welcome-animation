@@ -10,10 +10,18 @@ if ($CodexPath -and -not (Test-Path -LiteralPath $CodexPath -PathType Leaf)) { t
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 foreach ($folder in @('docs','launcher','assets')) { Copy-Item -LiteralPath (Join-Path $source $folder) -Destination $destination -Recurse -Force }
 foreach($entry in @('Uninstall.ps1','Settings.cmd')) { Copy-Item -LiteralPath (Join-Path $source $entry) -Destination $destination -Force }
-foreach ($required in @('docs\tunnel-dark.png','docs\tunnel-light.png','launcher\WelcomeTheme.cs','launcher\BrowserWindow.ps1','launcher\StartupCover.cs','assets\orb-motion.png','launcher\Settings.ps1','docs\glyphs.js','docs\personalize.js','launcher\Launch.ps1','launcher\HandoffOverlay.cs','docs\animation.html','docs\vendor\gsap.min.js','assets\openai-transparent.ico')) {
+foreach ($required in @('docs\tunnel-dark-00.png','docs\tunnel-light-00.png','launcher\WelcomeTheme.cs','launcher\BrowserWindow.ps1','launcher\StartupCover.cs','assets\orb-motion.png','launcher\Settings.ps1','docs\glyphs.js','docs\personalize.js','launcher\Launch.ps1','launcher\HandoffOverlay.cs','docs\animation.html','docs\vendor\gsap.min.js','assets\openai-transparent.ico')) {
     if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) { throw "Installation is incomplete: $required" }
 }
 Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
+foreach($theme in @('dark','light')) {
+    foreach($chunk in 0..5) {
+        $part=Join-Path $destination ('docs\tunnel-{0}-{1:00}.png' -f $theme,$chunk)
+        if(-not(Test-Path -LiteralPath $part -PathType Leaf)){throw "Installation is incomplete: $part"}
+    }
+    $legacy=Join-Path $destination ('docs\tunnel-'+$theme+'.png')
+    if(Test-Path -LiteralPath $legacy -PathType Leaf){Remove-Item -LiteralPath $legacy}
+}
 & (Join-Path $destination 'launcher\BuildNative.ps1') -Force
 
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'

@@ -42,10 +42,12 @@ for MODE in fast full settings; do
     cp "$BUILD/CodexWelcome" "$APP/Contents/MacOS/CodexWelcome"
     chmod 755 "$APP/Contents/MacOS/CodexWelcome"
     cp "$BUILD/OpenAI.icns" "$APP/Contents/Resources/OpenAI.icns"
-    cp "$ROOT/docs/tunnel-dark.png" "$ROOT/docs/tunnel-light.png" "$APP/Contents/Resources/docs/"
+    if [[ "$MODE" != settings ]]; then
+    cp "$ROOT/docs"/tunnel-*-??.png "$APP/Contents/Resources/docs/"
     cp "$ROOT/assets/orb-motion.png" "$APP/Contents/Resources/orb-motion.png"
     cp "$ROOT/docs/animation.html" "$ROOT/docs/orb-cloud.png" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
     cp "$ROOT/docs/vendor/gsap.min.js" "$APP/Contents/Resources/docs/vendor/gsap.min.js"
+    fi
     cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

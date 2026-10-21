@@ -18,7 +18,7 @@ const {chromium}=require('playwright');
    });
    assert.ok(Math.abs(frame.x-width/2)<.2 && Math.abs(frame.y-height/2)<.2,'Opening orb is not centered');
    assert.ok(frame.w<width*.3 && frame.h<height*.3,'Full-screen blue first frame regressed');
-   assert.deepEqual(frame.canvas,[320,320]);
+   assert.deepEqual(frame.canvas,[512,512]);
   }
   await page.setViewportSize({width:1280,height:832});
   await page.waitForTimeout(200);

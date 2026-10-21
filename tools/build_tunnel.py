@@ -1,6 +1,6 @@
 """Deterministic original particle flight, sampled from our existing OpenAI asset.
 
-96 frames at 60 fps, 640x400. Shared by WPF and Core Animation so startup
+192 frames at 120 fps, 1280x800, in six bounded atlases. Shared by WPF and Core Animation so startup
 never waits for a browser shader or a live particle simulation.
 """
 from pathlib import Path
@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
-W, H, FRAMES = 640, 400, 96
+W, H, FRAMES, FPS = 1280, 800, 192, 120
 rng = np.random.default_rng(37)
 mask = np.asarray(Image.open(ROOT/'assets/openai-transparent-1024.png').getchannel('A').resize((256,256)))
 ys,xs = np.where(mask > 170)
@@ -26,7 +26,7 @@ ambient = np.column_stack((rng.uniform(-4,4,260),rng.uniform(-2.8,2.8,260),rng.u
 def smooth(p):
     p=max(0,min(1,p));return p*p*(3-2*p)
 def render(frame,dark):
-    t=frame/60;p=t/1.6
+    t=frame/FPS;p=t/1.6
     camera=.15+9.8*(.1*p+.9*p*p)
     background=(5,6,9) if dark else (247,246,242)
     image=Image.new('RGB',(W*2,H*2),background)
@@ -41,7 +41,7 @@ def render(frame,dark):
         xx=(x[i]*math.cos(angle)-y[i]*math.sin(angle))*scale+W/2
         yy=(x[i]*math.sin(angle)+y[i]*math.cos(angle))*scale+H/2
         if not (-20<xx<W+20 and -20<yy<H+20):continue
-        radius=min(4.8,max(.22,size[i]*1.7/depth))
+        radius=2*min(4.8,max(.22,size[i]*1.7/depth))
         a=bright[i]*fade*(.72+.28*math.sin(i*1.8+t*3))
         c=(int(170*a),int(193*a),int(246*a)) if dark else (int(107*a),int(116*a),int(127*a))
         # Radial motion trails become visible only while accelerating through.
@@ -54,16 +54,19 @@ def render(frame,dark):
         if depth<.25:continue
         xx=W/2+ax*H/depth;yy=H/2+ay*H/depth
         if 0<xx<W and 0<yy<H:
-            r=max(.2,.65/depth);v=int(135*fade)
+            r=2*max(.2,.65/depth);v=int(135*fade)
             draw.ellipse(((xx-r)*2,(yy-r)*2,(xx+r)*2,(yy+r)*2),fill=(v,v,v))
-    glow=dust.filter(ImageFilter.GaussianBlur(2.7))
+    glow=dust.filter(ImageFilter.GaussianBlur(5.4))
     dust=ImageChops.add(dust,glow,scale=1)
     image=ImageChops.add(image,dust) if dark else ImageChops.subtract(image,dust)
     return image.resize((W,H),Image.Resampling.LANCZOS)
 if __name__=='__main__':
     for dark in [True,False]:
-        atlas=Image.new('RGB',(W*8,H*12))
-        for frame in range(FRAMES):atlas.paste(render(frame,dark),((frame%8)*W,(frame//8)*H))
-        path=ROOT/'docs'/('tunnel-dark.png' if dark else 'tunnel-light.png')
-        atlas.save(path,optimize=True)
-        print(path.name,path.stat().st_size)
+        for chunk in range(6):
+            atlas=Image.new('RGB',(W*4,H*8))
+            for local in range(32):
+                frame=chunk*32+local
+                atlas.paste(render(frame,dark),((local%4)*W,(local//4)*H))
+            path=ROOT/'docs'/f"tunnel-{'dark' if dark else 'light'}-{chunk:02d}.png"
+            atlas.save(path,optimize=True)
+            print(path.name,path.stat().st_size,flush=True)

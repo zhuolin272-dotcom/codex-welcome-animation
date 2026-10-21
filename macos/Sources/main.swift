@@ -66,33 +66,38 @@ private final class RevealView: NSView {
 private final class StartupOrbView: NSView {
     private let orb = CALayer()
     private let particles = CALayer()
+    private let tunnelDirectory: URL
+    private var chunkImages: [Int: CGImage] = [:]
+    private var requestedChunks: Set<Int> = []
     private var visibleAt = CACurrentMediaTime()
     private var orbShownAt = 0.0
     private var preparing = false
     private var collapsing = false
     var rainIsActive: Bool { particles.opacity > 0 && orb.opacity == 0 }
-    init(frame: NSRect, image: NSImage, tunnel: NSImage) {
+    init(frame: NSRect, image: NSImage, tunnel: NSImage, directory: URL) {
+        tunnelDirectory = directory
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = paper.cgColor
         layer?.masksToBounds = true
         var rect = NSRect(origin: .zero, size: tunnel.size)
-        particles.contents = tunnel.cgImage(forProposedRect: &rect, context: nil, hints: nil)
-        particles.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 1.0 / 12)
+        chunkImages[0] = tunnel.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        particles.contents = chunkImages[0]
+        particles.contentsRect = CGRect(x: 0, y: 0, width: 0.25, height: 0.125)
         layer?.addSublayer(particles)
         orb.opacity = 0
         rect = NSRect(origin: .zero, size: image.size)
         orb.contents = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
-        orb.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 0.125)
+        orb.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 0.0625)
         orb.masksToBounds = true
         layer?.addSublayer(orb)
         let flow = CAKeyframeAnimation(keyPath: "contentsRect")
-        flow.values = (0...64).map { index in
-            let f = index % 64
-            return NSValue(rect: NSRect(x: Double(f % 8) / 8, y: Double(f / 8) / 8, width: 0.125, height: 0.125))
+        flow.values = (0...128).map { index in
+            let f = index % 128
+            return NSValue(rect: NSRect(x: Double(f % 8) / 8, y: Double(f / 8) / 16, width: 0.125, height: 0.0625))
         }
         flow.calculationMode = .discrete
-        flow.duration = 64.0 / 60
+        flow.duration = 128.0 / 120
         flow.repeatCount = .infinity
         orb.add(flow, forKey: "cloud-flow")
     }
@@ -110,22 +115,57 @@ private final class StartupOrbView: NSView {
         orb.cornerRadius = diameter / 2
         CATransaction.commit()
     }
-    func startRainFill() {
-        visibleAt = CACurrentMediaTime()
+    private func loadChunk(_ index: Int) {
+        guard index < 6, requestedChunks.insert(index).inserted else { return }
+        let url = tunnelDirectory.appendingPathComponent(String(format: "tunnel-%@-%02d.png", darkTheme ? "dark" : "light", index))
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            autoreleasepool {
+                guard let image = NSImage(contentsOf: url) else { return }
+                var rect = NSRect(origin: .zero, size: image.size)
+                guard let cg = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return }
+                DispatchQueue.main.async {
+                    guard let self = self, self.particles.opacity > 0 else { return }
+                    let current = Int((CACurrentMediaTime() - self.visibleAt) * 120) / 32
+                    guard index >= current else { return }
+                    self.chunkImages[index] = cg
+                    if index == current { self.showChunk(index) }
+                }
+            }
+        }
+    }
+    private func showChunk(_ index: Int) {
+        guard let image = chunkImages[index] else { loadChunk(index); return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        particles.contents = image
+        CATransaction.commit()
         let flight = CAKeyframeAnimation(keyPath: "contentsRect")
-        flight.values = (0..<96).map { f in
-            NSValue(rect: NSRect(x: Double(f % 8) / 8, y: Double(f / 8) / 12, width: 0.125, height: 1.0 / 12))
+        flight.values = (0...32).map { value in
+            let f = min(31, value)
+            return NSValue(rect: NSRect(x: Double(f % 4) / 4, y: Double(f / 4) / 8, width: 0.25, height: 0.125))
         }
         flight.calculationMode = .discrete
-        flight.duration = 1.6
-        flight.fillMode = .forwards
+        flight.duration = 32.0 / 120
+        flight.beginTime = visibleAt + Double(index) * 32 / 120
+        flight.fillMode = .both
         flight.isRemovedOnCompletion = false
         particles.add(flight, forKey: "tunnel-flight")
+        for key in Array(chunkImages.keys) where key < index { chunkImages.removeValue(forKey: key) }
+        loadChunk(index + 1)
+    }
+    func startRainFill() {
+        visibleAt = CACurrentMediaTime()
+        showChunk(0)
+        for index in 1..<6 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 32 / 120) { [weak self] in self?.showChunk(index) }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
             guard let self = self else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             self.particles.opacity = 0
+            self.particles.contents = nil
+            self.chunkImages.removeAll()
             self.orb.opacity = 1
             CATransaction.commit()
             let grow = CAKeyframeAnimation(keyPath: "transform")
@@ -324,9 +364,9 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         root.addSubview(revealView)
         guard let imageURL = Bundle.main.url(forResource: "orb-motion", withExtension: "png"),
               let image = NSImage(contentsOf: imageURL) else { abort("缺少中央蓝球素材，请重新安装。"); return }
-        guard let tunnelURL = Bundle.main.url(forResource: darkTheme ? "tunnel-dark" : "tunnel-light", withExtension: "png", subdirectory: "docs"),
+        guard let tunnelURL = Bundle.main.url(forResource: darkTheme ? "tunnel-dark-00" : "tunnel-light-00", withExtension: "png", subdirectory: "docs"),
               let tunnel = NSImage(contentsOf: tunnelURL) else { abort("缺少粒子通道素材"); return }
-        let nativeOrb = StartupOrbView(frame: root.bounds, image: image, tunnel: tunnel)
+        let nativeOrb = StartupOrbView(frame: root.bounds, image: image, tunnel: tunnel, directory: docs)
         nativeOrb.autoresizingMask = [.width, .height]
         root.addSubview(nativeOrb)
         startupCover = nativeOrb

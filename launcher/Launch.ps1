@@ -131,7 +131,7 @@ try {
         while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
         if($startupCover.Failure){throw $startupCover.Failure}
         if(-not $startupCover.IsReady){throw 'Startup frame cover was not ready.'}
-        Write-LaunchLog 'RAIN visible; background prepares logo while particles fall'
+        Write-LaunchLog 'PARTICLE TUNNEL visible; 120 fps source; background prepares logo'
     }
     $edge = Find-Edge
     $discoveryWatch=[Diagnostics.Stopwatch]::StartNew()
@@ -190,7 +190,7 @@ try {
         if($startupCover -and $startupCover.Failure){throw $startupCover.Failure}
         if($prepared -and ($TestMode -or $topmost) -and $startupPhase -eq 'waiting'){$startupPhase='prepare'}
         if($presented -and $startupPhase -eq 'prepare'){
-            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'BACKEND ready; opening continues at its fixed 2s rain deadline'}
+            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'BACKEND ready; 1.6s tunnel then 0.42s orb bloom'}
         }
         if($startupPhase -eq 'collapsing' -and $startupCover.IsCollapsed){$startupPhase='play';Write-LaunchLog ("LIVE ORB collapsed after {0} moving frames; continue with logo" -f $startupCover.MotionFrames)}
         if($ready -and $startupCover -and -not $startupCover.IsComplete){$startupCover.Dismiss()}
