@@ -19,7 +19,7 @@
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.4.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.4.2 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.2/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -107,7 +107,9 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 **只在原生蓝球已经完全内缩、消失后，才接入 Logo。** 网页时间线从 `1.72s` 的 Logo 起点继续，不再从零重放蓝球，也不再做两个可见蓝球的淡入淡出。交接两边使用相同的纯色底，避免整个画面颜色突变。浏览器加载较慢时，小球的云雾会持续流动，准备好后再内缩；这段额外等待不计入 5.1s / 8.1s 的设计动画时长。
 
-Windows v1.4.1 取消 Edge 的 kiosk/F11 窗口启动，避免 Windows 在小球上方播放黑色全屏缩放过渡。改用普通应用窗口：先在屏幕外创建，关闭该窗口的 DWM 出现动画、去掉边框，页面就绪后才放到原生小球后方。全屏尺寸的动画展示与 Codex 最大化行为保持。此修复只涉及 Windows；Mac 继续使用 v1.4.0。
+Windows v1.4.2 先在屏幕外创建 Edge 应用窗口，关闭该窗口的 DWM 出现动画并保持透明，再隐藏浏览器内部的标题栏。启动器确认网页实际宽高已占满整个窗口后，才将它放到原生小球后方并显示。因此动画没有黑色标题栏、地址栏或右上角窗口按钮，同时保留防闪烁启动方式。进入 Codex 后仍是可最小化的最大化窗口。此修复只涉及 Windows；Mac 继续使用 v1.4.0。
+
+标题栏控制仅连接本项目独立、未登录的 Edge 配置，在随机的本机回环调试端口上短暂操作自己的动画页；不连接个人浏览器或外部网站，动画结束后进程和端口关闭。
 
 窗口辅助代码在 Windows 安装时编译，日常启动不重复编译；独立 Edge 进程关闭遮挡节流，原生交接遮罩预热后保持静止。实际启动时间和帧率取决于机器与图形驱动。仅播放本动画自己的资源，不读取桌面或 Codex 界面。开发者可运行 `node tools/build_orb_motion.cjs` 从着色器重新生成原生云雾序列。
 
@@ -164,6 +166,7 @@ docs/                         可离线运行、可静态部署的预览
 source/animation.template.html  动画、弹簧曲线、云雾着色器与交接逻辑
 tools/build.py                SVG 手写字形生成器
 launcher/StartupCover.cs       Windows 原生云雾开场与消失后交接
+launcher/BrowserWindow.ps1     隐藏动画标题栏并校验实际视口
 tools/export_startup_cloud.cjs 从 t=0 着色器生成 Windows 首帧素材
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
 launcher/HandoffOverlay.cs     原生透明果冻展开遮罩，显露真实 Codex
@@ -225,3 +228,5 @@ Start-Process (Join-Path $install 'CodexWelcome.exe') -ArgumentList 'full --test
 ## 许可证与素材
 
 本项目自写代码使用 MIT 许可证；第三方素材保持各自许可，详见 [NOTICE.md](NOTICE.md)。OpenAI 标志的商标权属于 OpenAI。本项目是个人欢迎动画，与 OpenAI 没有官方隶属或背书关系。
+
+Windows 可运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/WindowStartup.ps1` 验证真实窗口的两种速度、完整播放和无标题栏视口；该检查不启动 Codex。

@@ -25,6 +25,7 @@ namespace CodexWelcome {
         [DllImport("user32.dll")] private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
         [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr h,int index);
         [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr h,int index,int value);
+        [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(IntPtr h,uint color,byte alpha,uint flags);
         [DllImport("user32.dll")] private static extern IntPtr BeginDeferWindowPos(int count);
         [DllImport("user32.dll")] private static extern IntPtr DeferWindowPos(IntPtr batch,IntPtr h,IntPtr after,int x,int y,int width,int height,uint flags);
         [DllImport("user32.dll")] private static extern bool EndDeferWindowPos(IntPtr batch);
@@ -117,7 +118,8 @@ namespace CodexWelcome {
                 if(result!=0)throw new InvalidOperationException("Could not disable animation-window transitions: "+result);
                 DwmSetWindowAttribute(browser,33,ref disabled,4); // square corners on Windows 11
                 SetWindowLong(browser,-16,GetWindowLong(browser,-16)&~0x00cf0000);
-                SetWindowLong(browser,-20,(GetWindowLong(browser,-20)&~0x00040000)|0x00000080);
+                SetWindowLong(browser,-20,(GetWindowLong(browser,-20)&~0x00040000)|0x00000080|0x00080000);
+                if(!SetLayeredWindowAttributes(browser,0,0,2))throw new InvalidOperationException("The animation window could not be hidden during title-bar preparation.");
                 if((GetWindowLong(browser,-16)&0x00cf0000)!=0)throw new InvalidOperationException("The animation app window could not be made borderless.");
                 if(!SetWindowPos(browser,IntPtr.Zero,-32000,-32000,monitor.right-monitor.left,monitor.bottom-monitor.top,0x0034))return false;
                 RECT bounds;
@@ -138,7 +140,8 @@ namespace CodexWelcome {
                 batch=DeferWindowPos(batch,browser,new IntPtr(-1),monitor.left,monitor.top,monitor.right-monitor.left,monitor.bottom-monitor.top,0x0050);
                 if(batch==IntPtr.Zero)return false;
                 batch=DeferWindowPos(batch,handle,new IntPtr(-1),0,0,0,0,0x0053);
-                return batch!=IntPtr.Zero && EndDeferWindowPos(batch);
+                if(batch==IntPtr.Zero || !EndDeferWindowPos(batch))return false;
+                return SetLayeredWindowAttributes(browser,0,255,2);
             } finally { if(previous!=IntPtr.Zero)SetThreadDpiAwarenessContext(previous); }
         }
         public void BeginHandoff() { handoffRequested=true; }

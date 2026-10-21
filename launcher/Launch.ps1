@@ -4,9 +4,11 @@ param(
     [string]$CodexPath,
     [string]$WelcomeName,
     [switch]$ValidateOnly,
-    [switch]$TestMode
+    [switch]$TestMode,
+    [switch]$WindowTestMode
 )
 $ErrorActionPreference = 'Stop'
+$verificationOnly=$TestMode -or $WindowTestMode
 $root = Split-Path $PSScriptRoot -Parent
 $logDirectory = Join-Path $root 'logs'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
@@ -62,7 +64,7 @@ function Prepare-MaximizedDesktop {
     return $false
 }
 function Start-Codex([switch]$Reveal,[switch]$SkipLaunch) {
-    if ($TestMode) { return }
+    if ($verificationOnly) { return }
     if (-not $SkipLaunch) {
         if ($target.Kind -eq 'exe') { Start-Process -FilePath $target.Path -WindowStyle Normal | Out-Null }
         else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
@@ -116,7 +118,7 @@ try {
     Add-Type -Path $nativeLibrary
     if(-not $ValidateOnly){
         $created = $false
-        $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
+        $mutexName = if ($verificationOnly) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
         $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
         if (-not $created) { Write-LaunchLog 'BUSY another animation is running'; exit 0 }; $ownsMutex=$true
     }
@@ -129,7 +131,7 @@ try {
         Write-LaunchLog 'LIVE ORB flowing from first visible frame; native opening owns the orb'
     }
     $edge = Find-Edge
-    $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
+    $target = if ($verificationOnly) { @{Kind='test';Path='none'} } else { Find-Codex }
     if (-not $PSBoundParameters.ContainsKey('WelcomeName')) {
         $nameConfig=Join-Path $root 'config.json'
         if(Test-Path -LiteralPath $nameConfig) { $WelcomeName=(Get-Content -LiteralPath $nameConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName }
@@ -141,19 +143,23 @@ try {
     $listener.Start()
     $port = $listener.LocalEndpoint.Port
     $nonce = [Guid]::NewGuid().ToString('N')
-    $profileName = if ($TestMode) {'browser-test-profile'} else {'browser-profile'}
+    $profileName = if ($verificationOnly) {'browser-test-profile'} else {'browser-profile'}
     $profile = Join-Path $root $profileName
     Disable-AnimationTranslation $profile
     $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&native-orb=1&name=$([Uri]::EscapeDataString($WelcomeName))"
     $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
-    else { $browserArgs += @(('--app='+$url),'--window-position=-32000,-32000','--window-size=800,600') }
+    else {
+        $controlFile=Join-Path $profile 'DevToolsActivePort'
+        if(Test-Path -LiteralPath $controlFile){Remove-Item -LiteralPath $controlFile -Force}
+        $browserArgs += @(('--app='+$url),'--window-position=-32000,-32000','--window-size=800,600','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1')
+    }
     $windowStyle = if ($TestMode) {'Hidden'} else {'Normal'}
     $browserProcess = Start-Process -FilePath $edge -ArgumentList $browserArgs -PassThru -WindowStyle $windowStyle
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $prepared=$false; $presented=$false; $startupPhase='waiting'
-    $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $browserOffscreen=$false; $window=[IntPtr]::Zero
-    $desktopPrepared=$TestMode.IsPresent; $handoffReady=$false; $skipReveal=$false; $nextPreparation=0.0; $script:fullscreenExitRequestWindow=[IntPtr]::Zero
+    $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $browserOffscreen=$false; $contentOnly=$null; $window=[IntPtr]::Zero
+    $desktopPrepared=$verificationOnly; $handoffReady=$false; $skipReveal=$false; $nextPreparation=0.0; $script:fullscreenExitRequestWindow=[IntPtr]::Zero
     $routes = @{ '/orb-cloud.png'='docs\orb-cloud.png'; '/glyphs.js'='docs\glyphs.js'; '/personalize.js'='docs\personalize.js'; '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
     Write-LaunchLog ("START variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
     while ($watch.Elapsed.TotalSeconds -lt 45 -and -not $handoffReady) {
@@ -170,6 +176,9 @@ try {
             }
         }
         if(-not $TestMode -and $browserOffscreen -and $prepared -and -not $topmost){
+            . (Join-Path $PSScriptRoot 'BrowserWindow.ps1')
+            $contentOnly=Set-WelcomeContentOnly -Profile $profile -PageUrl $url
+            Write-LaunchLog ('BROWSER title bar removed while invisible '+$contentOnly)
             $topmost=$startupCover.PlaceBrowserBehind($window)
             if($topmost){Write-LaunchLog 'BROWSER painted before placement; moved behind native orb without fullscreen transition'}
         }
@@ -246,14 +255,14 @@ try {
         Write-LaunchLog 'JELLY REVEAL complete'
     } else { if ($handoffOverlay) { $handoffOverlay.Dispose() }; Close-AnimationWindow }
     Start-Codex -Reveal -SkipLaunch:$codexStarted
-    if ($TestMode) { [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Completed=$complete;FirstFramePrepared=$prepared;FirstFramePresented=$presented;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
+    if ($verificationOnly) { [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Completed=$complete;FirstFramePrepared=$prepared;FirstFramePresented=$presented;ContentOnlyVerified=($null -ne $contentOnly -and $contentOnly.StartsWith('contentOnly=True'));WindowGeometry=$contentOnly;ElapsedSeconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)} | ConvertTo-Json }
 }
 catch {
     Write-LaunchLog ('ERROR '+$_.Exception.Message)
     if ($handoffOverlay) { $handoffOverlay.Dispose() }
     if ($startupCover) { $startupCover.Dispose() }
     Close-AnimationWindow
-    if ($TestMode -or $ValidateOnly) { Write-Error $_; exit 1 }
+    if ($verificationOnly -or $ValidateOnly) { Write-Error $_; exit 1 }
     Add-Type -AssemblyName System.Windows.Forms
     [void][Windows.Forms.MessageBox]::Show($_.Exception.Message,'Codex Welcome')
     exit 1
