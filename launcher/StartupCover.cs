@@ -36,6 +36,10 @@ namespace CodexWelcome {
         private Canvas canvas;
         private Ellipse cloud;
         private ImageBrush texture;
+        private RainCurtain rain;
+        private readonly Stopwatch created=Stopwatch.StartNew();
+        private volatile bool atlasReady;
+        private double rainEndAt=-1,lastRender=-1,firstFrameMilliseconds;
         private readonly double speed;
         private readonly Stopwatch animation=Stopwatch.StartNew();
         private ScaleTransform breathing;
@@ -54,6 +58,8 @@ namespace CodexWelcome {
         public bool IsCollapsed { get { return collapsed; } }
         public int MotionFrames { get { return frames; } }
         public string BrowserPreparation { get { return browserPreparation; } }
+        public double FirstFrameMilliseconds { get { return firstFrameMilliseconds; } }
+        public bool IsOrbVisible { get { return rainEndAt>=0 && animation.Elapsed.TotalSeconds-rainEndAt>=.18 && !collapsed; } }
         public StartupCover(string path,double playbackSpeed) {
             imagePath=path;speed=playbackSpeed;
             Thread thread=new Thread(Run);thread.IsBackground=true;thread.SetApartmentState(ApartmentState.STA);thread.Start();
@@ -66,11 +72,11 @@ namespace CodexWelcome {
                 MONITORINFO info=new MONITORINFO();info.size=Marshal.SizeOf(info);
                 if(!GetMonitorInfo(MonitorFromPoint(point,2),ref info))throw new InvalidOperationException("Animation monitor was not found.");
                 monitor=info.monitor;
-                BitmapImage image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.UriSource=new Uri(imagePath);image.EndInit();image.Freeze();
-                canvas=new Canvas { ClipToBounds=true, Background=new SolidColorBrush(Color.FromRgb(247,246,242)) };
+                canvas=new Canvas { ClipToBounds=true, Background=Brushes.Transparent };
+                rain=new RainCurtain();canvas.Children.Add(rain);
                 breathing=new ScaleTransform(1,1);
-                texture=new ImageBrush(image) { ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,256,256),Stretch=Stretch.Fill };
-                cloud=new Ellipse { Fill=texture,RenderTransform=breathing,RenderTransformOrigin=new Point(.5,.5) };canvas.Children.Add(cloud);
+                texture=new ImageBrush { ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,256,256),Stretch=Stretch.Fill };
+                cloud=new Ellipse { Fill=texture,Opacity=0,RenderTransform=breathing,RenderTransformOrigin=new Point(.5,.5) };canvas.Children.Add(cloud);
                 window=new Window { Title="Codex Welcome Startup",WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,
                     AllowsTransparency=true,Background=Brushes.Transparent,ShowInTaskbar=false,ShowActivated=false,Topmost=true,Opacity=0,
                     Width=800,Height=600,Content=canvas };
@@ -82,6 +88,12 @@ namespace CodexWelcome {
                 SetWindowPos(handle,new IntPtr(-1),monitor.left,monitor.top,monitor.right-monitor.left,monitor.bottom-monitor.top,0x0050);
                 window.UpdateLayout();LayoutCloud();animation.Restart();window.Opacity=1;
                 CompositionTarget.Rendering+=Render;
+                ThreadPool.QueueUserWorkItem(delegate {
+                    try {
+                        BitmapImage image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.UriSource=new Uri(imagePath);image.EndInit();image.Freeze();
+                        if(!complete)dispatcher.BeginInvoke(new Action(delegate {texture.ImageSource=image;atlasReady=true;}));
+                    } catch(Exception error){if(!complete)failure=error.Message;}
+                });
                 Dispatcher.Run();
             } catch(Exception error){failure=error.Message;complete=true;}
             finally { CompositionTarget.Rendering-=Render;if(window!=null && window.IsVisible)window.Close(); }
@@ -89,6 +101,7 @@ namespace CodexWelcome {
         private void LayoutCloud() {
             if(window==null || cloud==null)return;
             double width=Math.Max(1,window.ActualWidth),height=Math.Max(1,window.ActualHeight);
+            rain.Width=width;rain.Height=height;
             double fit=Math.Min(width/1920,height/1080);
             double diameter=280*fit;
             cloud.Width=cloud.Height=diameter;
@@ -96,15 +109,21 @@ namespace CodexWelcome {
         }
         private void Render(object sender,EventArgs e) {
             double t=animation.Elapsed.TotalSeconds;
+            if(lastRender>=0 && t-lastRender<1.0/60)return;lastRender=t;
+            if(handoffRequested && atlasReady && rainEndAt<0 && t>=.65)rainEndAt=t;
+            double stage=rainEndAt<0?-1:t-rainEndAt;
+            rain.Time=t;rain.Fill=stage<0?0:Math.Min(1,stage/.18);rain.InvalidateVisual();
+            cloud.Opacity=stage<.1?0:Math.Min(1,(stage-.1)/.08);
             int frame=(int)(t*60)%64;
             if(frame!=lastFrame){texture.Viewbox=new Rect(frame%8*256,frame/8*256,256,256);lastFrame=frame;frames++;}
             double jelly=.014*Math.Sin(t*5);
-            if(handoffRequested && collapseAt<0 && t>=1.5/speed)collapseAt=t;
+            if(stage>=.43 && collapseAt<0)collapseAt=t;
             double p=collapseAt<0?0:Math.Min(1,(t-collapseAt)/(.22/speed));
             double scale=1-(Math.Pow(2,10*p)-1)/1023;
-            breathing.ScaleX=scale*(1+jelly);breathing.ScaleY=scale/(1+jelly);
+            double grow=stage<0?0:Math.Min(1,Math.Max(0,(stage-.1)/.12));grow=1-Math.Pow(1-grow,3);
+            breathing.ScaleX=grow*scale*(1+jelly);breathing.ScaleY=grow*scale/(1+jelly);
             if(p>=1)collapsed=true;
-            if(!ready){ready=true;return;}
+            if(!ready){firstFrameMilliseconds=created.Elapsed.TotalMilliseconds;ready=true;return;}
         }
         public bool PrepareBrowserOffscreen(IntPtr browser) {
             if(!ready || complete)return false;

@@ -44,7 +44,7 @@ function render(){const t=frameTime;
  const ending=handoffAt(t);scene.style.transform=`scale(${ending.sx},${ending.sy})`;scene.style.opacity=ending.opacity;if(t>=7.4&&!fadeSent){fadeSent=true;notifyHost('fade')}
 }
 window.__timelines=window.__timelines||{};const tl=gsap.timeline({paused:true});tl.to(state,{time:8.1,duration:8.1,ease:'none'},0);window.__timelines['jimmsun-intro']=tl;if(nativeOrb)tl.pause(1.72);render();
-const variant=params.get('variant')==='full'?'full':'fast';tl.timeScale(variant==='full'?1:1.6);tl.eventCallback('onComplete',()=>notifyHost('complete'));
+const variant=params.get('variant')==='full'?'full':'fast';tl.timeScale(nativeOrb?(variant==='full'?1.15:2):(variant==='full'?1:1.6));tl.eventCallback('onComplete',()=>notifyHost('complete'));
 function play(){fadeSent=false;tl.restart();if(!params.has('motion-test')&&matchMedia('(prefers-reduced-motion: reduce)').matches){if(params.has('launch'))tl.progress(1);else tl.pause(7.3)}}
 const deferredStart=params.has('launch')&&params.has('defer-start');let waitingForPresentation=deferredStart,presentationConfirmed=false,skipAtStart=false;
 window.__prepareWelcomeDisplay=()=>{if(!waitingForPresentation)return false;render();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!waitingForPresentation)return;presentationConfirmed=true;notifyHost('presented')}));return true};

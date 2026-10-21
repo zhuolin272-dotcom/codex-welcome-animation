@@ -64,12 +64,46 @@ private final class RevealView: NSView {
 
 private final class StartupOrbView: NSView {
     private let orb = CALayer()
+    private let rain = CAEmitterLayer()
+    private let wash = CALayer()
+    private let washMask = CAGradientLayer()
+    private let rainDrop = CAEmitterCell()
+    private var preparing = false
+    private var orbShownAt = 0.0
+    var rainIsActive: Bool { !preparing && rain.birthRate > 0 && orb.opacity == 0 }
     private let visibleAt = CACurrentMediaTime()
     private var collapsing = false
     init(frame: NSRect, image: NSImage) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.backgroundColor = paper.cgColor
+        layer?.backgroundColor = NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.11).cgColor
+        layer?.masksToBounds = true
+        let context = CGContext(data: nil, width: 8, height: 24, bitsPerComponent: 8, bytesPerRow: 32, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fillEllipse(in: CGRect(x: 2, y: 0, width: 4, height: 6))
+        context.setFillColor(CGColor(gray: 1, alpha: 0.38))
+        context.fill(CGRect(x: 3, y: 4, width: 2, height: 16))
+        rainDrop.contents = context.makeImage()
+        rainDrop.birthRate = 640
+        rainDrop.lifetime = 1.7
+        rainDrop.lifetimeRange = 0.3
+        rainDrop.emissionLongitude = -.pi / 2
+        rainDrop.emissionRange = 0.025
+        rainDrop.scale = 0.4
+        rainDrop.scaleRange = 0.2
+        rainDrop.alphaSpeed = -0.12
+        rain.emitterShape = .line
+        rain.emitterMode = .surface
+        rain.renderMode = .additive
+        rain.emitterCells = [rainDrop]
+        layer?.addSublayer(rain)
+        wash.backgroundColor = paper.cgColor
+        washMask.colors = [NSColor.clear.cgColor, NSColor.white.cgColor, NSColor.white.cgColor]
+        washMask.locations = [0, 0.08, 1]
+        washMask.anchorPoint = CGPoint(x: 0.5, y: 1)
+        wash.mask = washMask
+        layer?.addSublayer(wash)
+        orb.opacity = 0
         var rect = NSRect(origin: .zero, size: image.size)
         orb.contents = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
         orb.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 0.125)
@@ -101,15 +135,58 @@ private final class StartupOrbView: NSView {
         let diameter = 280 * min(bounds.width / 1920, bounds.height / 1080)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        rain.frame = bounds
+        rain.emitterPosition = CGPoint(x: bounds.midX, y: bounds.height + 8)
+        rain.emitterSize = CGSize(width: bounds.width, height: 0)
+        rainDrop.velocity = bounds.height * 0.65
+        rainDrop.velocityRange = bounds.height * 0.2
+        rainDrop.yAcceleration = -bounds.height * 0.9
+        rain.emitterCells = [rainDrop]
+        wash.frame = bounds
+        washMask.position = CGPoint(x: bounds.midX, y: bounds.height)
+        washMask.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: preparing ? bounds.height * 1.2 + 80 : 0)
         orb.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
         orb.position = CGPoint(x: bounds.midX, y: bounds.midY)
         orb.cornerRadius = diameter / 2
         CATransaction.commit()
     }
+    func prepareForContent(completion: @escaping () -> Void) {
+        guard !preparing else { return }
+        let delay = max(0, 0.65 - (CACurrentMediaTime() - visibleAt))
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self = self else { return }
+            self.preparing = true
+            let height = self.bounds.height * 1.2 + 80
+            let fill = CABasicAnimation(keyPath: "bounds.size.height")
+            fill.fromValue = 0
+            fill.toValue = height
+            fill.duration = 0.18
+            fill.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.washMask.bounds.size.height = height
+            self.orb.opacity = 1
+            CATransaction.commit()
+            self.washMask.add(fill, forKey: "rain-fill")
+            let appear = CABasicAnimation(keyPath: "opacity")
+            appear.fromValue = 0
+            appear.toValue = 1
+            appear.beginTime = CACurrentMediaTime() + 0.1
+            appear.duration = 0.08
+            appear.fillMode = .backwards
+            self.orb.add(appear, forKey: "rain-orb")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.rain.birthRate = 0
+                self.rain.opacity = 0
+                self.orbShownAt = CACurrentMediaTime()
+                completion()
+            }
+        }
+    }
     func collapse(speed: Double, completion: @escaping () -> Void) {
         guard !collapsing else { return }
         collapsing = true
-        let delay = max(0, 1.5 / speed - (CACurrentMediaTime() - visibleAt))
+        let delay = max(0, 0.25 - (CACurrentMediaTime() - orbShownAt))
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self = self else { return }
             self.orb.removeAnimation(forKey: "breathing")
@@ -258,8 +335,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private func showAnimation() {
         window = WelcomeWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.title = "Codex Welcome"
-        window.isOpaque = true
-        window.backgroundColor = paper
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.animationBehavior = .none
         window.hasShadow = false
         window.isReleasedWhenClosed = false
@@ -269,6 +346,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         window.contentView = root
         revealView = RevealView(frame: root.bounds)
         revealView.autoresizingMask = [.width, .height]
+        revealView.isHidden = true
         root.addSubview(revealView)
         guard let imageURL = Bundle.main.url(forResource: "orb-motion", withExtension: "png"),
               let image = NSImage(contentsOf: imageURL) else { abort("缺少中央蓝球素材，请重新安装。"); return }
@@ -281,19 +359,13 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         NSApp.activate()
         root.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
-        log("LIVE ORB native flowing elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; WebKit warming behind it")
-        if selfTest, let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--native-startup-snapshot=") }) {
-            guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(root.bounds.width), pixelsHigh: Int(root.bounds.height), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
-                  let context = NSGraphicsContext(bitmapImageRep: bitmap) else { abort("Cannot validate native startup orb"); return }
-            nativeOrb.layer?.render(in: context.cgContext)
-            guard let png = bitmap.representation(using: .png, properties: [:]) else { abort("Cannot encode native startup orb"); return }
-            do { try png.write(to: URL(fileURLWithPath: String(argument.dropFirst("--native-startup-snapshot=".count))), options: .atomic) }
-            catch { abort(error.localizedDescription); return }
-        }
+        CATransaction.flush()
+        if selfTest && !nativeOrb.rainIsActive { abort("Rain did not start before WebKit"); return }
+        log("RAIN native visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; WebKit warming behind it")
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.userContentController.add(self, name: "codexWelcome")
-        webView = WKWebView(frame: root.bounds, configuration: configuration)
+        webView = WKWebView(frame: root.bounds.offsetBy(dx: root.bounds.width * 2, dy: 0), configuration: configuration)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
         webView.underPageBackgroundColor = paper
@@ -310,6 +382,28 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
 
     private func prepareFirstFrame() {
         guard startupPhase == "loading", !finishing else { return }
+        startupPhase = "rain-finishing"
+        guard let opening = startupCover else { abort("Native rain is missing"); return }
+        opening.prepareForContent { [weak self] in
+            guard let self = self, !self.finishing, !self.revealing else { return }
+            self.webView.setFrameOrigin(.zero)
+            self.window.contentView?.layoutSubtreeIfNeeded()
+            self.captureNativeFrame()
+            self.snapshotPreparedFrame()
+        }
+    }
+    private func captureNativeFrame() {
+        guard let nativeOrb = startupCover, let root = window.contentView else { return }
+        if selfTest, let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--native-startup-snapshot=") }) {
+            guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(root.bounds.width), pixelsHigh: Int(root.bounds.height), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+                  let context = NSGraphicsContext(bitmapImageRep: bitmap) else { abort("Cannot validate native startup orb"); return }
+            nativeOrb.layer?.render(in: context.cgContext)
+            guard let png = bitmap.representation(using: .png, properties: [:]) else { abort("Cannot encode native startup orb"); return }
+            do { try png.write(to: URL(fileURLWithPath: String(argument.dropFirst("--native-startup-snapshot=".count))), options: .atomic) }
+            catch { abort(error.localizedDescription); return }
+        }
+    }
+    private func snapshotPreparedFrame() {
         startupPhase = "snapshotting"
         log("FIRST FRAME preparing windowVisible=\(window.isVisible)")
         let configuration = WKSnapshotConfiguration()
@@ -354,7 +448,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             }
             startupPhase = "collapsing"
             guard let nativeOrb = startupCover else { abort("Native opening orb is missing"); return }
-            nativeOrb.collapse(speed: variant == "full" ? 1 : 1.6) { [weak self] in
+            nativeOrb.collapse(speed: variant == "full" ? 1.15 : 2) { [weak self] in
                 guard let self = self, !self.finishing, !self.revealing else { return }
                 self.startupPhase = "running"
                 // Both surfaces are now the same paper color. The orb is gone;
@@ -378,7 +472,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             let elapsed: Double
             if let clock = webClock, let start = webIntroStarted { elapsed = (clock - start) / 1000 }
             else { elapsed = ProcessInfo.processInfo.systemUptime - introStarted }
-            if selfTest && elapsed < (variant == "full" ? 6.1 : 3.7) {
+            if selfTest && elapsed < (variant == "full" ? 5.3 : 3.0) {
                 abort("Self-test animation completed too early: \(elapsed)s")
                 return
             }
@@ -450,6 +544,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private func beginReveal() {
         guard !revealing else { return }
         revealing = true
+        revealView.isHidden = false
         polling?.invalidate()
         startupCover?.removeFromSuperview()
         startupCover = nil
@@ -472,7 +567,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         revealStarted = ProcessInfo.processInfo.systemUptime
         revealTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            let p = (ProcessInfo.processInfo.systemUptime-self.revealStarted)/1.1
+            let p = (ProcessInfo.processInfo.systemUptime-self.revealStarted)/(variant == "full" ? 0.95 : 0.8)
             self.revealView.progress = min(1,p)
             if p >= 1.06 { self.finish() }
         }

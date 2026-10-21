@@ -19,7 +19,7 @@ Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
 $bootstrap=Join-Path $destination 'CodexWelcome.exe'
-& $compiler /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll ('/win32icon:'+(Join-Path $destination 'assets\openai-transparent.ico')) ('/out:'+$bootstrap) (Join-Path $destination 'launcher\Bootstrap.cs')
+& $compiler /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll ('/reference:'+(Join-Path $destination 'launcher\WelcomeNative.dll')) ('/win32icon:'+(Join-Path $destination 'assets\openai-transparent.ico')) ('/out:'+$bootstrap) (Join-Path $destination 'launcher\Bootstrap.cs')
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $bootstrap)) { throw 'Could not build the native Windows launcher.' }
 if ($CodexPath) {
     $configPath=Join-Path $destination 'config.json'

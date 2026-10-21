@@ -123,12 +123,13 @@ try {
         if (-not $created) { Write-LaunchLog 'BUSY another animation is running'; exit 0 }; $ownsMutex=$true
     }
     if(-not $TestMode -and -not $ValidateOnly){
-        $startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),$(if($Variant -eq 'full'){1.0}else{1.6})
+        if($env:CODEX_WELCOME_OPENING_PIPE){$startupCover=New-Object CodexWelcome.StartupCoverProxy -ArgumentList $env:CODEX_WELCOME_OPENING_PIPE}
+        else{$startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),$(if($Variant -eq 'full'){1.15}else{2.0})}
         $coverWatch=[Diagnostics.Stopwatch]::StartNew()
         while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
         if($startupCover.Failure){throw $startupCover.Failure}
         if(-not $startupCover.IsReady){throw 'Startup frame cover was not ready.'}
-        Write-LaunchLog 'LIVE ORB flowing from first visible frame; native opening owns the orb'
+        Write-LaunchLog 'RAIN visible; background prepares logo while particles fall'
     }
     $edge = Find-Edge
     $target = if ($verificationOnly) { @{Kind='test';Path='none'} } else { Find-Codex }
@@ -185,7 +186,7 @@ try {
         if($startupCover -and $startupCover.Failure){throw $startupCover.Failure}
         if($prepared -and ($TestMode -or $topmost) -and $startupPhase -eq 'waiting'){$startupPhase='prepare'}
         if($presented -and $startupPhase -eq 'prepare'){
-            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'LIVE ORB collapse begins; web holds invisible logo entry at t=1.72'}
+            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'RAIN fills down; quick blue orb then invisible logo handoff'}
         }
         if($startupPhase -eq 'collapsing' -and $startupCover.IsCollapsed){$startupPhase='play';Write-LaunchLog ("LIVE ORB collapsed after {0} moving frames; continue with logo" -f $startupCover.MotionFrames)}
         if($ready -and $startupCover -and -not $startupCover.IsComplete){$startupCover.Dismiss()}
@@ -245,7 +246,7 @@ try {
     if (-not $TestMode -and -not $skipReveal) {
         if (-not $handoffOverlay -or -not $handoffOverlay.IsReady) { throw 'The jelly transition cover was not ready.' }
         Write-LaunchLog 'JELLY REVEAL begin'
-        $handoffOverlay.Reveal(1.1)
+        $handoffOverlay.Reveal($(if($Variant -eq 'full'){.95}else{.8}))
         [void][WelcomeWindow]::ShowWindowAsync($window,0)
         Close-AnimationWindow
         $revealWatch=[Diagnostics.Stopwatch]::StartNew()

@@ -1,6 +1,6 @@
 # Codex Welcome Animation
 
-为 Windows 和 macOS Codex 准备的一段个人欢迎动画：中央蓝色云雾小球轻柔流动、呼吸，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome 你的名字**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
+为 Windows 和 macOS Codex 准备的一段个人欢迎动画：双击后先出现由上往下落下的白色粒子雨幕，后台同时准备动画；雨幕铺满后快速接入中央蓝色云雾小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome 你的名字**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
 
 ![蓝色云雾小球预览](assets/orb.png)
 
@@ -8,10 +8,10 @@
 
 | 版本 | 速度 | 动画时长 | 欢迎词书写 | 启动入口 |
 | --- | --- | --- | --- | --- |
-| **5.1 秒 · 推荐** | 1.6× | 5.0625 秒，显示为约 5.1 秒 | 约 2.19 秒 | Windows：`Launch-5.1s.cmd`；Mac：`Codex (5.1s).app` |
-| **8.1 秒 · 完整版** | 1× | 8.1 秒 | 3.5 秒 | Windows：`Launch-8.1s.cmd`；Mac：`Codex (8.1s).app` |
+| **5.1 秒 · 推荐（沿用入口名）** | 桌面 2×；网页 1.6× | 桌面 Logo 后约 3.19 秒；网页 5.0625 秒 | 桌面 1.75 秒 | Windows：`Launch-5.1s.cmd`；Mac：`Codex (5.1s).app` |
+| **8.1 秒 · 完整（沿用入口名）** | 桌面 1.15×；网页 1× | 桌面 Logo 后约 5.55 秒；网页 8.1 秒 | 桌面约 3.04 秒 | Windows：`Launch-8.1s.cmd`；Mac：`Codex (8.1s).app` |
 
-两个版本来自同一条时间线，快速版就是预览中选定的 1.6× 版本。表中时长指开场（含片尾收拢），之后两版都额外使用约 **1.1 秒**展开真实的 Codex 界面，保留原来的书写节奏。启动浏览器和 Codex 所需时间取决于电脑状态。
+v1.5.0 加快桌面节奏，保留原快捷方式和 App 名称作为兼容入口，名称不再代表新版从双击开始的精确耗时。粒子雨幕与后台准备重叠，准备完成后约半秒内接入 Logo；最后推荐版约 0.8 秒、完整版约 0.95 秒展开 Codex。总时间取决于电脑的启动状态。网页预览保留原 5.1s / 8.1s 基础时间线，不包含系统原生粒子雨幕。
 
 动画按实际窗口尺寸等比缩放并居中，支持不同分辨率、宽高比例和 Windows 显示缩放。蓝球与旋转 Logo 从中心出现，之后 Logo 按设计向上弹射，为欢迎词留出空间。
 
@@ -19,7 +19,7 @@
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.4.2 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.2/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.5.0 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.0/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -43,9 +43,9 @@ Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实�
 
 Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 
-- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.0/Codex-Welcome-macOS-AppleSilicon.zip)。
-- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.0/Codex-Welcome-macOS-universal.zip)。
-- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.4.0)。
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.0/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.0/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.5.0)。
 
 下载并解压后，双击 `Install.command`，或直接把两种速度和 `Codex Settings.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
@@ -101,17 +101,13 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 ## 启动首帧与闪烁修复
 
-开场直接是**屏幕中央的小尺寸蓝球**，取消全屏放大的蓝色首帧和从整屏收成小球的阶段。小球在原位轻柔呼吸，然后沿用内缩、旋转 Logo、书写与果冻交接。5.1s / 8.1s 两种节奏保留。
+双击后先显示**透明背景上的白色雨滴粒子**，从屏幕上方向下落下并逐渐铺满。后台同时加载浏览器、欢迎名字和 Logo。准备完成后，雨幕向下收成浅色画面，迅速接入短暂的中央蓝球，再继续 Logo 和连笔欢迎词，不用盯着静态小球等待。
 
-桌面开场由原生组件直接播放 **60 fps 的云雾流动序列**，来自原有蓝球着色器，内部云雾持续运动，不再只缩放一张静态图片。Windows 使用原生绘图，Mac 使用 Core Animation；浏览器/WebKit 在后方准备 Logo 和书写。
+Windows 原生 EXE 直接创建粒子窗口，早于 PowerShell 和浏览器启动。云雾纹理在后台线程解码，避免阻塞粒子；后台通过仅当前用户可访问的本机命名管道操作**同一个**动画窗口，不重复创建开场。Mac 使用原生 Core Animation 粒子层，WebKit 在屏幕外准备，待雨幕填充成不透明画面后接入。
 
-**只在原生蓝球已经完全内缩、消失后，才接入 Logo。** 网页时间线从 `1.72s` 的 Logo 起点继续，不再从零重放蓝球，也不再做两个可见蓝球的淡入淡出。交接两边使用相同的纯色底，避免整个画面颜色突变。浏览器加载较慢时，小球的云雾会持续流动，准备好后再内缩；这段额外等待不计入 5.1s / 8.1s 的设计动画时长。
+推荐版的 Logo / 书写节奏从 1.6× 提升到 2×，完整版从 1× 提升到 1.15×；原生蓝球只短暂停留。两个版本的片尾展开分别缩短到约 0.8 秒与 0.95 秒。名字、无标题栏、防闪烁和 Codex 最大化设置保留。
 
-Windows v1.4.2 先在屏幕外创建 Edge 应用窗口，关闭该窗口的 DWM 出现动画并保持透明，再隐藏浏览器内部的标题栏。启动器确认网页实际宽高已占满整个窗口后，才将它放到原生小球后方并显示。因此动画没有黑色标题栏、地址栏或右上角窗口按钮，同时保留防闪烁启动方式。进入 Codex 后仍是可最小化的最大化窗口。此修复只涉及 Windows；Mac 继续使用 v1.4.0。
-
-标题栏控制仅连接本项目独立、未登录的 Edge 配置，在随机的本机回环调试端口上短暂操作自己的动画页；不连接个人浏览器或外部网站，动画结束后进程和端口关闭。
-
-窗口辅助代码在 Windows 安装时编译，日常启动不重复编译；独立 Edge 进程关闭遮挡节流，原生交接遮罩预热后保持静止。实际启动时间和帧率取决于机器与图形驱动。仅播放本动画自己的资源，不读取桌面或 Codex 界面。开发者可运行 `node tools/build_orb_motion.cjs` 从着色器重新生成原生云雾序列。
+Windows 在窗口不可见时隐藏浏览器内部标题栏，并确认网页实际宽高占满窗口，才放到原生雨幕后方。动画不显示标题栏或右上角按钮；进入 Codex 后保留最小化与还原。窗口控制仅操作独立、未登录的本机 Edge 配置；不访问个人浏览器或外部页面，结束后相关进程与端口关闭。
 
 ## 浏览器预览
 
@@ -167,6 +163,8 @@ source/animation.template.html  动画、弹簧曲线、云雾着色器与交接
 tools/build.py                SVG 手写字形生成器
 launcher/StartupCover.cs       Windows 原生云雾开场与消失后交接
 launcher/BrowserWindow.ps1     隐藏动画标题栏并校验实际视口
+launcher/RainCurtain.cs        原生白色雨滴绘制
+launcher/StartupBridge.cs      启动器与后台共享同一开场窗口
 tools/export_startup_cloud.cjs 从 t=0 着色器生成 Windows 首帧素材
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
 launcher/HandoffOverlay.cs     原生透明果冻展开遮罩，显露真实 Codex

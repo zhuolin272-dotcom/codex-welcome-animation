@@ -69,7 +69,7 @@ bash macos/build.sh
 bash macos/smoke.sh
 ```
 
-生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查原生云雾先流动、WebKit 在后方准备 Logo、蓝球完全内缩后从 Logo 继续，并对原生/网页首帧图像分别检查原生中央小球、网页不可见交接点和浅色四角、透明度及黑色空白；不启动 Codex，也不请求辅助功能权限。
+生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查原生白色粒子先落下、WebKit 在屏幕外准备，雨幕填充后快速接入蓝球与 Logo，并对原生/网页首帧图像分别检查原生中央小球、网页不可见交接点和浅色四角、透明度及黑色空白；不启动 Codex，也不请求辅助功能权限。
 
 默认构建 Universal；只需 Apple Silicon 时：
 
@@ -97,3 +97,5 @@ Windows 环境只能检查共享网页与源码结构，不能编译 AppKit/WebK
 动画资源随 `.app` 离线打包。WKWebView 使用临时数据存储，并只允许导航到包内动画文件；原生消息桥只接受主文档的 READY、收拢和完成消息。不会读取个人 Safari/Chrome 配置。
 
 本项目原始代码使用 MIT 许可，Logo、GSAP 与字体的第三方说明见包内 `NOTICE.md` 与 `Sacramento-OFL.txt`。本项目并非 OpenAI 官方启动器。
+
+新版推荐入口桌面节奏为 2×，完整版为 1.15×，入口名沿用 5.1s / 8.1s 以保持已有链接可用；网页基础预览仍使用原速度。雨幕与后台准备重叠，总耗时随启动状态变化。
