@@ -102,16 +102,14 @@ function Close-AnimationWindow {
     }
 }
 function Disable-AnimationTranslation([string]$ProfilePath) {
-    # Only the dedicated animation profile is changed; personal browser profiles
-    # and machine/user policies are not used by the launcher.
+    # This profile belongs exclusively to the splash. Never deserialize and
+    # reserialize Edge's entire preferences in Windows PowerShell: adapted JSON
+    # strings can accumulate metadata and grow exponentially on repeat launches.
+    # A bounded, literal config also repairs an oversized previous preferences.
     $preferencesPath=Join-Path $ProfilePath 'Default\Preferences'
     New-Item -ItemType Directory -Path (Split-Path $preferencesPath -Parent) -Force | Out-Null
-    try {
-        $preferences=if(Test-Path -LiteralPath $preferencesPath){Get-Content -LiteralPath $preferencesPath -Raw | ConvertFrom-Json}else{[pscustomobject]@{}}
-        if(-not $preferences.PSObject.Properties['translate']){$preferences | Add-Member -NotePropertyName translate -NotePropertyValue ([pscustomobject]@{})}
-        if($preferences.translate.PSObject.Properties['enabled']){$preferences.translate.enabled=$false}else{$preferences.translate | Add-Member -NotePropertyName enabled -NotePropertyValue $false}
-        [IO.File]::WriteAllText($preferencesPath,($preferences | ConvertTo-Json -Depth 100),(New-Object Text.UTF8Encoding($false)))
-    } catch { Write-LaunchLog ('Translation preference skipped: '+$_.Exception.Message) }
+    $literal='{"translate":{"enabled":false},"signin":{"allowed":false},"credentials_enable_service":false,"profile":{"password_manager_enabled":false},"background_mode":{"enabled":false}}'
+    [IO.File]::WriteAllText($preferencesPath,$literal,(New-Object Text.UTF8Encoding($false)))
 }
 $listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false; $handoffOverlay=$null; $startupCover=$null
 try {
