@@ -19,6 +19,10 @@ enum WelcomePreferences {
     static func name(at url: URL) -> String {
         (try? validatedName(read(at: url)["WelcomeName"] as? String ?? "JimmSun")) ?? "JimmSun"
     }
+    static func theme(at url: URL, systemDark: Bool) -> String {
+        let choice = read(at: url)["Theme"] as? String ?? "system"
+        return ["dark", "light"].contains(choice) ? choice : (systemDark ? "dark" : "light")
+    }
     static func set(_ value: String, forKey key: String, at url: URL) throws {
         var values = read(at: url)
         if key == "WelcomeName" { values[key] = try validatedName(value) } else { values[key] = value }

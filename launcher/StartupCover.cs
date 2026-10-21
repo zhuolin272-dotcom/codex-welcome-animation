@@ -41,6 +41,7 @@ namespace CodexWelcome {
         private volatile bool atlasReady;
         private double rainEndAt=-1,lastRender=-1,firstFrameMilliseconds;
         private readonly double speed;
+        private readonly bool dark;
         private readonly Stopwatch animation=Stopwatch.StartNew();
         private ScaleTransform breathing;
         private double collapseAt=-1;
@@ -59,10 +60,12 @@ namespace CodexWelcome {
         public int MotionFrames { get { return frames; } }
         public string BrowserPreparation { get { return browserPreparation; } }
         public double FirstFrameMilliseconds { get { return firstFrameMilliseconds; } }
-        public double RainFill { get { return Math.Max(0,Math.Min(1,(animation.Elapsed.TotalSeconds-.15)/1.85)); } }
+        public double RainFill { get { return Math.Max(0,Math.Min(1,animation.Elapsed.TotalSeconds/1.6)); } }
+        public bool IsTunnelReady { get { return atlasReady; } }
         public bool IsOrbVisible { get { return rainEndAt>=0 && animation.Elapsed.TotalSeconds-rainEndAt>=.18 && !collapsed; } }
-        public StartupCover(string path,double playbackSpeed) {
-            imagePath=path;speed=playbackSpeed;
+        public StartupCover(string path,double playbackSpeed):this(path,playbackSpeed,false) {}
+        public StartupCover(string path,double playbackSpeed,bool darkTheme) {
+            imagePath=path;speed=playbackSpeed;dark=darkTheme;
             Thread thread=new Thread(Run);thread.IsBackground=true;thread.SetApartmentState(ApartmentState.STA);thread.Start();
         }
         private void Run() {
@@ -74,7 +77,7 @@ namespace CodexWelcome {
                 if(!GetMonitorInfo(MonitorFromPoint(point,2),ref info))throw new InvalidOperationException("Animation monitor was not found.");
                 monitor=info.monitor;
                 canvas=new Canvas { ClipToBounds=true, Background=Brushes.Transparent };
-                rain=new RainCurtain();canvas.Children.Add(rain);
+                rain=new RainCurtain {Dark=dark};canvas.Children.Add(rain);
                 breathing=new ScaleTransform(1,1);
                 texture=new ImageBrush { ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,256,256),Stretch=Stretch.Fill };
                 cloud=new Ellipse { Fill=texture,Opacity=0,RenderTransform=breathing,RenderTransformOrigin=new Point(.5,.5) };canvas.Children.Add(cloud);
@@ -92,7 +95,9 @@ namespace CodexWelcome {
                 ThreadPool.QueueUserWorkItem(delegate {
                     try {
                         BitmapImage image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.UriSource=new Uri(imagePath);image.EndInit();image.Freeze();
-                        if(!complete)dispatcher.BeginInvoke(new Action(delegate {texture.ImageSource=image;atlasReady=true;}));
+                        string tunnelPath=System.IO.Path.Combine(System.IO.Directory.GetParent(System.IO.Path.GetDirectoryName(imagePath)).FullName,"docs",dark?"tunnel-dark.png":"tunnel-light.png");
+                        BitmapImage tunnel=new BitmapImage();tunnel.BeginInit();tunnel.CacheOption=BitmapCacheOption.OnLoad;tunnel.UriSource=new Uri(tunnelPath);tunnel.EndInit();tunnel.Freeze();
+                        if(!complete)dispatcher.BeginInvoke(new Action(delegate {texture.ImageSource=image;rain.Atlas=tunnel;atlasReady=true;animation.Restart();lastRender=-1;}));
                     } catch(Exception error){if(!complete)failure=error.Message;}
                 });
                 Dispatcher.Run();
@@ -111,19 +116,18 @@ namespace CodexWelcome {
         private void Render(object sender,EventArgs e) {
             double t=animation.Elapsed.TotalSeconds;
             if(lastRender>=0 && t-lastRender<1.0/60)return;lastRender=t;
-            // Rain always fills in two seconds, independently of backend ready.
-            // A slow browser can only extend the flowing orb, never the rain.
-            if(atlasReady && rainEndAt<0 && t>=2.0)rainEndAt=t;
+            // Flight, focus, bloom, collapse: all measured on the same clock.
+            if(atlasReady && rainEndAt<0 && t>=1.6)rainEndAt=t;
             double stage=rainEndAt<0?-1:t-rainEndAt;
             rain.Time=t;rain.Fill=RainFill;rain.InvalidateVisual();
-            cloud.Opacity=stage<0?0:Math.Min(1,stage/.08);
+            cloud.Opacity=stage<0?0:Math.Min(1,stage/.18);
             int frame=(int)(t*60)%64;
             if(frame!=lastFrame){texture.Viewbox=new Rect(frame%8*256,frame/8*256,256,256);lastFrame=frame;frames++;}
             double jelly=.014*Math.Sin(t*5);
-            if(handoffRequested && stage>=.22 && collapseAt<0)collapseAt=t;
+            if(handoffRequested && stage>=.54 && collapseAt<0)collapseAt=t;
             double p=collapseAt<0?0:Math.Min(1,(t-collapseAt)/(.22/speed));
             double scale=1-(Math.Pow(2,10*p)-1)/1023;
-            double grow=stage<0?0:Math.Min(1,stage/.12);grow=1-Math.Pow(1-grow,3);
+            double grow=stage<0?0:Math.Min(1,stage/.42);grow=grow*grow*(3-2*grow);
             breathing.ScaleX=grow*scale*(1+jelly);breathing.ScaleY=grow*scale/(1+jelly);
             if(p>=1)collapsed=true;
             if(!ready){firstFrameMilliseconds=created.Elapsed.TotalMilliseconds;ready=true;return;}

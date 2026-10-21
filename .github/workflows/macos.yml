@@ -9,6 +9,7 @@ on:
       - 'assets/openai-transparent*.png'
       - 'assets/startup-cloud.png'
       - 'assets/orb-motion.png'
+      - 'assets/tunnel-*.png'
       - '.github/workflows/macos.yml'
   workflow_dispatch:
 

@@ -26,6 +26,12 @@ precondition(normalized == "é")
 for invalid in ["", "  ", String(repeating: "x", count: 21), "A\nB", "A\u{202E}B"] {
     do { _ = try WelcomePreferences.validatedName(invalid); fatalError("Invalid name was accepted") } catch {}
 }
+for choice in ["system", "dark", "light"] {
+    try WelcomePreferences.set(choice, forKey: "Theme", at: config)
+    for systemDark in [true, false] {
+        precondition(WelcomePreferences.theme(at: config, systemDark: systemDark) == (choice == "system" ? (systemDark ? "dark" : "light") : choice))
+    }
+}
 try FileManager.default.removeItem(at: config)
 try FileManager.default.removeItem(at: directory)
 print("Mac preferences: Unicode, normalization, validation, preserved CodexPath PASS")

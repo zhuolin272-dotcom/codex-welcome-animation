@@ -32,11 +32,12 @@ internal static class CodexWelcomeBootstrap {
             string mode = args.Length > 0 && args[0] == "full" ? "full" : "fast";
             File.AppendAllText(log, DateTime.Now.ToString("o") + " ENTRY mode=" + mode + "\r\n");
             string pipeName=null;
+            string theme=WelcomeTheme.Resolve(Path.Combine(root,"config.json"));
             if(!test && !validate && !settings) {
                 bool created;
                 gate=new Mutex(true,windowTest?"Local\\CodexWelcomeBootstrapTest":"Local\\CodexWelcomeBootstrap",out created);
                 if(!created)return 0;ownsGate=true;
-                opening=new StartupCover(Path.Combine(root,"assets\\orb-motion.png"),mode=="full"?1.15:2.0);
+                opening=new StartupCover(Path.Combine(root,"assets\\orb-motion.png"),mode=="full"?1.15:2.0,theme=="dark");
                 pipeName="CodexWelcome-"+Guid.NewGuid().ToString("N");
                 bridge=new StartupCoverServer(opening,pipeName);
             }
@@ -55,6 +56,7 @@ internal static class CodexWelcomeBootstrap {
             start.RedirectStandardOutput = true;
             start.RedirectStandardError = true;
             if(pipeName!=null)start.EnvironmentVariables["CODEX_WELCOME_OPENING_PIPE"]=pipeName;
+            start.EnvironmentVariables["CODEX_WELCOME_THEME"]=theme;
             StringBuilder output = new StringBuilder();
             using (Process child = new Process()) {
                 child.StartInfo = start;

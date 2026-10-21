@@ -69,7 +69,7 @@ bash macos/build.sh
 bash macos/smoke.sh
 ```
 
-生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查原生白色粒子先落下、WebKit 在屏幕外准备，雨幕填充后快速接入蓝球与 Logo，并对原生/网页首帧图像分别检查原生中央小球、网页不可见交接点和浅色四角、透明度及黑色空白；不启动 Codex，也不请求辅助功能权限。
+生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查原生 OpenAI 星尘通道先播放、WebKit 在屏幕外准备，中心光点长成蓝球后接入 Logo，并对原生/网页首帧图像分别检查原生中央小球、网页不可见交接点和两种外观的四角及透明度；不启动 Codex，也不请求辅助功能权限。
 
 默认构建 Universal；只需 Apple Silicon 时：
 
@@ -98,7 +98,6 @@ Windows 环境只能检查共享网页与源码结构，不能编译 AppKit/WebK
 
 本项目原始代码使用 MIT 许可，Logo、GSAP 与字体的第三方说明见包内 `NOTICE.md` 与 `Sacramento-OFL.txt`。本项目并非 OpenAI 官方启动器。
 
-新版推荐入口桌面节奏为 2×，完整版为 1.15×，入口名沿用 5.1s / 8.1s 以保持已有链接可用；网页基础预览仍使用原速度。雨幕与后台准备重叠，总耗时随启动状态变化。
+推荐入口后续节奏为 2×，完整版为 1.15×，沿用 5.1s / 8.1s 入口名。v1.6.0 使用约 1.6 秒的 OpenAI 粒子通道，接约 0.42 秒的中心光点长大。Codex Settings.app 中可选择“跟随系统 / 浅色 / 深色”，默认跟随系统；设置保存在应用外部 `config.json` 的 `Theme` 字段。深浅色覆盖通道、Logo、欢迎词和最后的果冻展开。
 
-
-v1.5.1：雨幕固定在 2 秒内从上至下铺满，与 WebKit 就绪回调无关；随后快速出现中央流动蓝球，网页准备好后继续 Logo。慢设备只可能短暂延长流动蓝球，不会无限循环雨滴。
+`macos/smoke.sh` 分别播放两种速度和深浅两种主题，检查原生蓝球与网页交接点的背景一致。共享粒子帧为本项目生成的 OpenAI 星尘图形，不包含用户提供的参考视频。

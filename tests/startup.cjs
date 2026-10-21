@@ -53,5 +53,14 @@ const {chromium}=require('playwright');
   assert.ok((await page.evaluate(()=>window.bootMessages)).filter(m=>['prepared','presented','ready'].includes(m.kind)).every(m=>m.time===1.72));
   assert.deepEqual(errors,[]);
   console.log('Native opening: invisible logo entry, no second orb or timeline restart PASS');
+  for(const system of ['light','dark'])for(const choice of ['system','dark','light']){
+   await page.emulateMedia({colorScheme:system});url.searchParams.set('theme',choice);await page.goto(url.href);
+   const expected=choice==='system'?system:choice;
+   const appearance=await page.evaluate(()=>({dark:document.documentElement.classList.contains('dark'),background:getComputedStyle(document.body).backgroundColor,logo:getComputedStyle(document.getElementById('logo')).color}));
+   assert.equal(appearance.dark,expected==='dark');assert.equal(appearance.background,expected==='dark'?'rgb(5, 6, 9)':'rgb(247, 246, 242)');
+   assert.equal(appearance.logo,expected==='dark'?'rgb(240, 242, 247)':'rgb(36, 37, 39)');
+  }
+  console.log('Web appearance: system dark/light and both explicit overrides PASS');
+
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

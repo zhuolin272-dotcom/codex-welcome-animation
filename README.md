@@ -1,6 +1,6 @@
 # Codex Welcome Animation
 
-为 Windows 和 macOS Codex 准备的一段个人欢迎动画：双击后先出现由上往下落下的白色粒子雨幕，后台同时准备动画；雨幕铺满后快速接入中央蓝色云雾小球，小球内缩消失，OpenAI Logo 旋转长大、逐渐减速，再蓄力弹射向上，带出连笔书写的 **welcome 你的名字**。最后欢迎画面以果冻形变向中心收拢消失，再从同一中心向外展开，显露真实的 Codex 界面。
+为 Windows 和 macOS Codex 准备的个人欢迎动画：星尘构成 OpenAI 标志，镜头加速穿过粒子通道；中心光点用约 0.42 秒长成流动蓝球，随后衔接旋转 Logo、弹射与连笔 **welcome 你的名字**，最后以果冻形变展开真实的 Codex。支持系统深浅色自动识别，也可以手动固定外观。
 
 ![蓝色云雾小球预览](assets/orb.png)
 
@@ -8,10 +8,10 @@
 
 | 版本 | 速度 | 动画时长 | 欢迎词书写 | 启动入口 |
 | --- | --- | --- | --- | --- |
-| **5.1 秒 · 推荐（沿用入口名）** | 桌面 2×；网页 1.6× | 桌面 Logo 后约 3.19 秒；网页 5.0625 秒 | 桌面 1.75 秒 | Windows：`Launch-5.1s.cmd`；Mac：`Codex (5.1s).app` |
-| **8.1 秒 · 完整（沿用入口名）** | 桌面 1.15×；网页 1× | 桌面 Logo 后约 5.55 秒；网页 8.1 秒 | 桌面约 3.04 秒 | Windows：`Launch-8.1s.cmd`；Mac：`Codex (8.1s).app` |
+| **5.1 秒 · 推荐（沿用入口名）** | 桌面 / 首页 2× | 桌面 Logo 后约 3.19 秒 | 桌面 1.75 秒 | Windows：`Launch-5.1s.cmd`；Mac：`Codex (5.1s).app` |
+| **8.1 秒 · 完整（沿用入口名）** | 桌面 / 首页 1.15× | 桌面 Logo 后约 5.55 秒 | 桌面约 3.04 秒 | Windows：`Launch-8.1s.cmd`；Mac：`Codex (8.1s).app` |
 
-v1.5.1 加快桌面节奏，保留原快捷方式和 App 名称作为兼容入口，名称不再代表新版从双击开始的精确耗时。粒子雨幕固定在 2 秒内由上至下铺成不透明浅色背景，然后快速接入中央蓝球与 Logo；后台与开场并行准备。最后推荐版约 0.8 秒、完整版约 0.95 秒展开 Codex。总时间取决于电脑的启动状态。网页预览保留原 5.1s / 8.1s 基础时间线，不包含系统原生粒子雨幕。
+v1.6.0 的粒子通道约 1.6 秒、光点长成球约 0.42 秒，随后快速进入 Logo。推荐版从粒子启动到显露 Codex 约 6.3 秒，完整版约 8.8 秒；后台冷启动可能延长流动蓝球阶段。入口名 5.1s / 8.1s 为兼容保留，不代表从双击开始的精确总耗时。网页首页也包含新的粒子开场。
 
 动画按实际窗口尺寸等比缩放并居中，支持不同分辨率、宽高比例和 Windows 显示缩放。蓝球与旋转 Logo 从中心出现，之后 Logo 按设计向上弹射，为欢迎词留出空间。
 
@@ -19,7 +19,7 @@ v1.5.1 加快桌面节奏，保留原快捷方式和 App 名称作为兼容入�
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.5.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.6.0 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.6.0/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -43,9 +43,9 @@ Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实�
 
 Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 
-- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.1/Codex-Welcome-macOS-AppleSilicon.zip)。
-- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.5.1/Codex-Welcome-macOS-universal.zip)。
-- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.5.1)。
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.6.0/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.6.0/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.6.0)。
 
 下载并解压后，双击 `Install.command`，或直接把两种速度和 `Codex Settings.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
@@ -99,19 +99,21 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 启动时在随机的 `127.0.0.1` 端口短暂提供本地文件，完成后关闭；不对局域网开放，也不依赖网络。窗口可用时，Codex 会在动画后方准备就绪。异常情况下最长等待 45 秒后结束交接并报告错误。
 
-## 启动首帧与闪烁修复
+## 粒子通道、外观与启动交接
 
-双击后先显示**透明背景上的白色雨滴粒子**，从屏幕上方向下落下并逐渐铺满。后台同时加载浏览器、欢迎名字和 Logo。雨幕独立于浏览器就绪信号，在 2 秒内逐渐铺成浅色画面，迅速接入中央蓝球，再继续 Logo 和连笔欢迎词，不用盯着静态小球等待。
+开场是由 OpenAI 标志截面形成的立体星尘通道，先聚焦辨认轮廓，再向前加速穿越，近处粒子带有径向拖影和柔和辉光。约 1.6 秒后从中心一点逐渐长成蓝球，约 0.42 秒完成长大，再内缩、交接 Logo。原生开场不受浏览器加载进度控制，后台慢时只会延长流动蓝球。
 
-Windows 原生 EXE 直接创建粒子窗口，早于 PowerShell 和浏览器启动。云雾纹理在后台线程解码，避免阻塞粒子；后台通过仅当前用户可访问的本机命名管道操作**同一个**动画窗口，不重复创建开场。Mac 使用原生 Core Animation 粒子层，WebKit 在屏幕外准备。两个平台的雨幕都采用固定 2 秒计时，不再无限等待后端；遇到特别慢的浏览器冷启动，继续流动的蓝球只会短暂延长，准备好后再交给 Logo。
+**Codex Settings → 动画外观** 提供 **跟随系统 / 浅色 / 深色**，默认跟随系统。Windows 读取应用的 `AppsUseLightTheme` 设置；Mac 读取当前有效 AppKit 外观。每次启动重新识别，启动后整段使用同一外观，保证粒子、Logo、书写和最后的真实界面展开衔接一致。手动外观保存在配置的 `Theme` 字段（`system` / `light` / `dark`），更新保留。深色底色为 `#050609`，Logo 为浅白色；浅色为暖白背景和石墨色 Logo。
 
-v1.5.1 同时修复专用浏览器配置反复转换后膨胀、导致读取过慢或内存不足并退出的问题：启动只写入固定大小的动画专用设置，不读取或重新序列化整个 Edge 配置，也不修改个人浏览器。
+Windows 原生 EXE 在 PowerShell / Edge 加载前创建窗口，后台线程解码共享粒子帧。Mac 使用 Core Animation 播放相同的离线帧。每帧只改变一层纹理的取景区域，避免实时计算数千粒子、编译网页着色器或重复创建可见开场。共享帧由 `python tools/build_tunnel.py` 生成，仅使用仓库现有 OpenAI 图形；不包含参考视频或用户桌面画面。
+
+v1.6.0 同时修复专用浏览器配置反复转换后膨胀、导致读取过慢或内存不足并退出的问题：启动只写入固定大小的动画专用设置，不读取或重新序列化整个 Edge 配置，也不修改个人浏览器。
 
 Windows 安装时保存 Codex 的 Store 应用标识，启动直接使用缓存，避免每次 `Get-StartApps` 重新扫描完整应用列表。重新安装会生成缓存，并保留欢迎名字。
 
 推荐版的 Logo / 书写节奏从 1.6× 提升到 2×，完整版从 1× 提升到 1.15×；原生蓝球只短暂停留。两个版本的片尾展开分别缩短到约 0.8 秒与 0.95 秒。名字、无标题栏、防闪烁和 Codex 最大化设置保留。
 
-Windows 在窗口不可见时隐藏浏览器内部标题栏，并确认网页实际宽高占满窗口，才放到原生雨幕后方。动画不显示标题栏或右上角按钮；进入 Codex 后保留最小化与还原。窗口控制仅操作独立、未登录的本机 Edge 配置；不访问个人浏览器或外部页面，结束后相关进程与端口关闭。
+Windows 在窗口不可见时隐藏浏览器内部标题栏，并确认网页实际宽高占满窗口，才放到原生粒子通道后方。动画不显示标题栏或右上角按钮；进入 Codex 后保留最小化与还原。窗口控制仅操作独立、未登录的本机 Edge 配置；不访问个人浏览器或外部页面，结束后相关进程与端口关闭。
 
 ## 浏览器预览
 
@@ -119,8 +121,8 @@ Windows 在窗口不可见时隐藏浏览器内部标题栏，并确认网页实
 
 - `docs/fast.html`：默认 5.1 秒预览。
 - `docs/full.html`：默认 8.1 秒预览。
-- `docs/animation.html?play=1&variant=fast`：纯动画入口。
-- `docs/animation.html?play=1&variant=full&theme=dark`：深色完整版。
+- `docs/animation.html?play=1&variant=fast&desktop-preview=1&theme=system`：纯动画入口。
+- `docs/animation.html?play=1&variant=full&desktop-preview=1&theme=dark`：深色完整版。
 
 为了在本地 HTTP 环境测试，也可以安装 Node.js 后运行：
 

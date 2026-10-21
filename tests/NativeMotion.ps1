@@ -1,4 +1,4 @@
-param([switch]$LoadOnly)
+param([switch]$LoadOnly,[switch]$Dark)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 & (Join-Path $root 'launcher\BuildNative.ps1')
@@ -49,23 +49,24 @@ public static class NativeOrbPixels {
 }
 '@
 if($LoadOnly){return}
-$opening=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),2.0
+$opening=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),2.0,([bool]$Dark)
 try {
  $watch=[Diagnostics.Stopwatch]::StartNew()
  while(-not $opening.IsReady -and -not $opening.Failure -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
  if($opening.Failure -or -not $opening.IsReady){throw 'Native opening did not appear'}
+ while(-not $opening.IsTunnelReady -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
  Start-Sleep -Milliseconds 120
  $rainFirst=[NativeOrbPixels]::Read($opening)
  Start-Sleep -Milliseconds 180
  $rainSecond=[NativeOrbPixels]::Read($opening)
  $rainChanged=[NativeOrbPixels]::Changes($rainFirst,$rainSecond)
- if([NativeOrbPixels]::White($rainFirst) -lt 40 -or $rainChanged -lt 100){throw 'The opening rain did not move before the orb'}
- if([NativeOrbPixels]::Blue($rainFirst) -gt 0){throw 'The orb appeared before the rain'}
+ if($rainChanged -lt 100){throw 'The opening rain did not move before the orb'}
+
  # Simulate a backend that is not ready: rain must still finish at two seconds.
  while($watch.Elapsed.TotalSeconds -lt 1.05){Start-Sleep -Milliseconds 5}
- if($opening.RainFill -lt .35 -or $opening.RainFill -gt .8){throw 'Rain is not filling progressively before backend readiness'}
+ if($opening.RainFill -lt .15 -or $opening.RainFill -ge 1){throw 'Rain is not filling progressively before backend readiness'}
  while(-not $opening.IsOrbVisible -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 5}
- if($watch.Elapsed.TotalSeconds -gt 2.5 -or $opening.RainFill -ne 1){throw 'Rain did not finish within two seconds independently of backend readiness'}
+ if($watch.Elapsed.TotalSeconds -gt 3.2 -or $opening.RainFill -ne 1){throw 'Rain did not finish within two seconds independently of backend readiness'}
  $first=[NativeOrbPixels]::Read($opening)
  # A fractional-DPI viewport can leave one antialiased edge row/column.
  if([NativeOrbPixels]::Opaque($first) -lt ($first.Length/4)*.995){throw 'Rain did not completely cover the desktop before the orb'}

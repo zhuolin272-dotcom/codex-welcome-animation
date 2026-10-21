@@ -117,6 +117,7 @@ try {
     $nativeLibrary=Join-Path $PSScriptRoot 'WelcomeNative.dll'
     if(-not (Test-Path -LiteralPath $nativeLibrary)){ & (Join-Path $PSScriptRoot 'BuildNative.ps1') }
     Add-Type -Path $nativeLibrary
+    $theme=if($env:CODEX_WELCOME_THEME -in @('dark','light')){$env:CODEX_WELCOME_THEME}else{[CodexWelcome.WelcomeTheme]::Resolve((Join-Path $root 'config.json'))}
     if(-not $ValidateOnly){
         $created = $false
         $mutexName = if ($verificationOnly) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
@@ -125,7 +126,7 @@ try {
     }
     if(-not $TestMode -and -not $ValidateOnly){
         if($env:CODEX_WELCOME_OPENING_PIPE){$startupCover=New-Object CodexWelcome.StartupCoverProxy -ArgumentList $env:CODEX_WELCOME_OPENING_PIPE}
-        else{$startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),$(if($Variant -eq 'full'){1.15}else{2.0})}
+        else{$startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),$(if($Variant -eq 'full'){1.15}else{2.0}),($theme -eq 'dark')}
         $coverWatch=[Diagnostics.Stopwatch]::StartNew()
         while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
         if($startupCover.Failure){throw $startupCover.Failure}
@@ -150,7 +151,7 @@ try {
     $profileName = if ($verificationOnly) {'browser-test-profile'} else {'browser-profile'}
     $profile = Join-Path $root $profileName
     Disable-AnimationTranslation $profile
-    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&native-orb=1&name=$([Uri]::EscapeDataString($WelcomeName))"
+    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&native-orb=1&theme=$theme&name=$([Uri]::EscapeDataString($WelcomeName))"
     $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
     else {
@@ -195,7 +196,7 @@ try {
         if($ready -and $startupCover -and -not $startupCover.IsComplete){$startupCover.Dismiss()}
         if ($ready -and $topmost -and -not $codexStarted) { Start-Codex; $codexStarted=$true }
         if ($codexStarted -and $null -eq $handoffOverlay -and -not $TestMode) {
-            $handoffOverlay=New-Object CodexWelcome.HandoffOverlay -ArgumentList $window
+            $handoffOverlay=New-Object CodexWelcome.HandoffOverlay -ArgumentList $window,($theme -eq 'dark')
             Write-LaunchLog 'JELLY cover preparation started'
         }
         if ($handoffOverlay -and $handoffOverlay.Failure) { throw $handoffOverlay.Failure }

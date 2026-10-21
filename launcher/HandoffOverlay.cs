@@ -22,6 +22,7 @@ namespace CodexWelcome {
         [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr h, int index, int value);
 
         private readonly IntPtr splash;
+        private readonly bool dark;
         private readonly Thread thread;
         private Dispatcher dispatcher;
         private Window window;
@@ -35,8 +36,9 @@ namespace CodexWelcome {
         public bool IsComplete { get { return complete; } }
         public string Failure { get { return failure; } }
 
-        public HandoffOverlay(IntPtr splashWindow) {
-            splash = splashWindow;
+        public HandoffOverlay(IntPtr splashWindow):this(splashWindow,false) {}
+        public HandoffOverlay(IntPtr splashWindow,bool darkTheme) {
+            splash = splashWindow;dark=darkTheme;
             thread = new Thread(Run);
             thread.IsBackground = true;
             thread.SetApartmentState(ApartmentState.STA);
@@ -57,12 +59,12 @@ namespace CodexWelcome {
                 dispatcher = Dispatcher.CurrentDispatcher;
                 MONITORINFO info = new MONITORINFO(); info.size = Marshal.SizeOf(info);
                 if (!GetMonitorInfo(MonitorFromWindow(splash, 2), ref info)) throw new InvalidOperationException("Could not locate the animation monitor.");
-                Color paper = Color.FromRgb(247,246,242);
+                Color paper = dark?Color.FromRgb(5,6,9):Color.FromRgb(247,246,242);
                 aperture = new RadialGradientBrush();
                 aperture.MappingMode = BrushMappingMode.Absolute;
                 aperture.RadiusX = aperture.RadiusY = .01;
-                aperture.GradientStops.Add(new GradientStop(Color.FromArgb(0,247,246,242),0));
-                aperture.GradientStops.Add(new GradientStop(Color.FromArgb(0,247,246,242),.975));
+                aperture.GradientStops.Add(new GradientStop(Color.FromArgb(0,paper.R,paper.G,paper.B),0));
+                aperture.GradientStops.Add(new GradientStop(Color.FromArgb(0,paper.R,paper.G,paper.B),.975));
                 aperture.GradientStops.Add(new GradientStop(paper,1));
                 window = new Window {
                     Title = "Codex Welcome Transition", WindowStyle = WindowStyle.None,

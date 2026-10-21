@@ -9,7 +9,8 @@ private let arguments = Set(CommandLine.arguments.dropFirst())
 private let selfTest = arguments.contains("--self-test")
 private let variant = Bundle.main.object(forInfoDictionaryKey: "CWVariant") as? String ?? "fast"
 private let settingsMode = arguments.contains("--settings") || variant == "settings"
-private let paper = NSColor(srgbRed: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 1)
+private var darkTheme = false
+private var paper = NSColor(srgbRed: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 1)
 private let welcomeFiles = FileManager.default
 private let support = welcomeFiles.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/CodexWelcome", isDirectory: true)
 
@@ -49,8 +50,8 @@ private final class RevealView: NSView {
         context.clear(bounds)
         let (rx, ry) = JellyGeometry.radii(progress: progress, width: bounds.width, height: bounds.height)
         let space = CGColorSpaceCreateDeviceRGB()
-        let colors = [CGColor(red: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 0),
-                      CGColor(red: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 0),
+        let colors = [paper.withAlphaComponent(0).cgColor,
+                      paper.withAlphaComponent(0).cgColor,
                       paper.cgColor] as CFArray
         guard let gradient = CGGradient(colorsSpace: space, colors: colors, locations: [0, 0.975, 1]) else { return }
         context.saveGState()
@@ -64,140 +65,96 @@ private final class RevealView: NSView {
 
 private final class StartupOrbView: NSView {
     private let orb = CALayer()
-    private let rain = CAEmitterLayer()
-    private let wash = CALayer()
-    private let washMask = CAGradientLayer()
-    private let rainDrop = CAEmitterCell()
-    private var preparing = false
-    private var fillStarted = false
+    private let particles = CALayer()
+    private var visibleAt = CACurrentMediaTime()
     private var orbShownAt = 0.0
-    var rainIsActive: Bool { !preparing && rain.birthRate > 0 && orb.opacity == 0 }
-    private let visibleAt = CACurrentMediaTime()
+    private var preparing = false
     private var collapsing = false
-    init(frame: NSRect, image: NSImage) {
+    var rainIsActive: Bool { particles.opacity > 0 && orb.opacity == 0 }
+    init(frame: NSRect, image: NSImage, tunnel: NSImage) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.11).cgColor
+        layer?.backgroundColor = paper.cgColor
         layer?.masksToBounds = true
-        let context = CGContext(data: nil, width: 8, height: 24, bitsPerComponent: 8, bytesPerRow: 32, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        context.setFillColor(CGColor(gray: 1, alpha: 1))
-        context.fillEllipse(in: CGRect(x: 2, y: 0, width: 4, height: 6))
-        context.setFillColor(CGColor(gray: 1, alpha: 0.38))
-        context.fill(CGRect(x: 3, y: 4, width: 2, height: 16))
-        rainDrop.contents = context.makeImage()
-        rainDrop.birthRate = 640
-        rainDrop.lifetime = 1.7
-        rainDrop.lifetimeRange = 0.3
-        rainDrop.emissionLongitude = -.pi / 2
-        rainDrop.emissionRange = 0.025
-        rainDrop.scale = 0.4
-        rainDrop.scaleRange = 0.2
-        rainDrop.alphaSpeed = -0.12
-        rain.emitterShape = .line
-        rain.emitterMode = .surface
-        rain.renderMode = .additive
-        rain.emitterCells = [rainDrop]
-        layer?.addSublayer(rain)
-        wash.backgroundColor = paper.cgColor
-        washMask.colors = [NSColor.clear.cgColor, NSColor.white.cgColor, NSColor.white.cgColor]
-        washMask.locations = [0, 0.08, 1]
-        washMask.anchorPoint = CGPoint(x: 0.5, y: 1)
-        wash.mask = washMask
-        layer?.addSublayer(wash)
+        var rect = NSRect(origin: .zero, size: tunnel.size)
+        particles.contents = tunnel.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        particles.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 1.0 / 12)
+        layer?.addSublayer(particles)
         orb.opacity = 0
-        var rect = NSRect(origin: .zero, size: image.size)
+        rect = NSRect(origin: .zero, size: image.size)
         orb.contents = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
         orb.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 0.125)
         orb.masksToBounds = true
         layer?.addSublayer(orb)
-        // These are real shader frames; Core Animation plays them independently
-        // of WebKit startup and never swaps a visible static ball for another one.
         let flow = CAKeyframeAnimation(keyPath: "contentsRect")
         flow.values = (0...64).map { index in
-            let frame = index % 64
-            return NSValue(rect: NSRect(x: Double(frame % 8) / 8, y: Double(frame / 8) / 8, width: 0.125, height: 0.125))
+            let f = index % 64
+            return NSValue(rect: NSRect(x: Double(f % 8) / 8, y: Double(f / 8) / 8, width: 0.125, height: 0.125))
         }
         flow.calculationMode = .discrete
-        flow.duration = 64.0 / 60.0
+        flow.duration = 64.0 / 60
         flow.repeatCount = .infinity
         orb.add(flow, forKey: "cloud-flow")
-        let breathing = CAKeyframeAnimation(keyPath: "transform")
-        breathing.values = (0...60).map { index in
-            let jelly = 0.014 * sin(Double(index) / 60 * .pi * 2)
-            return NSValue(caTransform3D: CATransform3DMakeScale(1 + jelly, 1 / (1 + jelly), 1))
-        }
-        breathing.duration = .pi * 2 / 5
-        breathing.repeatCount = .infinity
-        orb.add(breathing, forKey: "breathing")
     }
     required init?(coder: NSCoder) { fatalError("Not supported") }
     override func layout() {
         super.layout()
         let diameter = 280 * min(bounds.width / 1920, bounds.height / 1080)
+        let fit = min(bounds.width / 640, bounds.height / 400)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        rain.frame = bounds
-        rain.emitterPosition = CGPoint(x: bounds.midX, y: bounds.height + 8)
-        rain.emitterSize = CGSize(width: bounds.width, height: 0)
-        rainDrop.velocity = bounds.height * 0.65
-        rainDrop.velocityRange = bounds.height * 0.2
-        rainDrop.yAcceleration = -bounds.height * 0.9
-        rain.emitterCells = [rainDrop]
-        wash.frame = bounds
-        washMask.position = CGPoint(x: bounds.midX, y: bounds.height)
-        washMask.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: fillStarted ? bounds.height * 1.2 + 80 : 0)
+        particles.bounds = CGRect(x: 0, y: 0, width: 640 * fit, height: 400 * fit)
+        particles.position = CGPoint(x: bounds.midX, y: bounds.midY)
         orb.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
         orb.position = CGPoint(x: bounds.midX, y: bounds.midY)
         orb.cornerRadius = diameter / 2
         CATransaction.commit()
     }
     func startRainFill() {
-        guard !fillStarted else { return }
-        fillStarted = true
-        let height = bounds.height * 1.2 + 80
-        let fill = CABasicAnimation(keyPath: "bounds.size.height")
-        fill.fromValue = 0
-        fill.toValue = height
-        fill.beginTime = CACurrentMediaTime() + 0.15
-        fill.duration = 1.85
-        fill.fillMode = .backwards
-        fill.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        washMask.bounds.size.height = height
-        CATransaction.commit()
-        washMask.add(fill, forKey: "rain-fill")
-        // This deadline belongs to the opening, not WebKit's ready callback.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        visibleAt = CACurrentMediaTime()
+        let flight = CAKeyframeAnimation(keyPath: "contentsRect")
+        flight.values = (0..<96).map { f in
+            NSValue(rect: NSRect(x: Double(f % 8) / 8, y: Double(f / 8) / 12, width: 0.125, height: 1.0 / 12))
+        }
+        flight.calculationMode = .discrete
+        flight.duration = 1.6
+        flight.fillMode = .forwards
+        flight.isRemovedOnCompletion = false
+        particles.add(flight, forKey: "tunnel-flight")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
             guard let self = self else { return }
-            self.rain.birthRate = 0
-            self.rain.opacity = 0
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.particles.opacity = 0
             self.orb.opacity = 1
-            let appear = CABasicAnimation(keyPath: "opacity")
-            appear.fromValue = 0
-            appear.toValue = 1
-            appear.duration = 0.08
-            self.orb.add(appear, forKey: "rain-orb")
+            CATransaction.commit()
+            let grow = CAKeyframeAnimation(keyPath: "transform")
+            grow.values = (0...30).map { index in
+                let p = Double(index) / 30
+                let scale = max(0.001, p * p * (3 - 2 * p))
+                return NSValue(caTransform3D: CATransform3DMakeScale(scale, scale, 1))
+            }
+            grow.duration = 0.42
+            self.orb.add(grow, forKey: "point-to-orb")
             self.orbShownAt = CACurrentMediaTime()
         }
     }
     func prepareForContent(completion: @escaping () -> Void) {
         guard !preparing else { return }
         preparing = true
-        let delay = max(0, 2.12 - (CACurrentMediaTime() - visibleAt))
+        let delay = max(0, 2.05 - (CACurrentMediaTime() - visibleAt))
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { completion() }
     }
     func collapse(speed: Double, completion: @escaping () -> Void) {
         guard !collapsing else { return }
         collapsing = true
-        let delay = max(0, 0.25 - (CACurrentMediaTime() - orbShownAt))
+        let delay = max(0, 0.54 - (CACurrentMediaTime() - orbShownAt))
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self = self else { return }
-            self.orb.removeAnimation(forKey: "breathing")
             let collapse = CAKeyframeAnimation(keyPath: "transform")
             collapse.values = (0...32).map { index in
-                let progress = Double(index) / 32
-                let scale = 1 - (pow(2, 10 * progress) - 1) / 1023
+                let p = Double(index) / 32
+                let scale = 1 - (pow(2, 10 * p) - 1) / 1023
                 return NSValue(caTransform3D: CATransform3DMakeScale(scale, scale, 1))
             }
             collapse.duration = 0.22 / speed
@@ -241,6 +198,10 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             if settingsMode { showNameSettings(); NSApp.terminate(nil); return }
             let config = support.appendingPathComponent("config.json")
             welcomeName = WelcomePreferences.name(at: config)
+            let systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            darkTheme = WelcomePreferences.theme(at: config, systemDark: systemDark) == "dark"
+            if selfTest, let override = CommandLine.arguments.first(where: { $0.hasPrefix("--theme=") }) { darkTheme = override == "--theme=dark" }
+            paper = darkTheme ? NSColor(srgbRed: 5 / 255, green: 6 / 255, blue: 9 / 255, alpha: 1) : NSColor(srgbRed: 247 / 255, green: 246 / 255, blue: 242 / 255, alpha: 1)
             if selfTest, let override = CommandLine.arguments.first(where: { $0.hasPrefix("--welcome-name=") }) {
                 welcomeName = try WelcomePreferences.validatedName(String(override.dropFirst("--welcome-name=".count)))
             }
@@ -304,9 +265,17 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         alert.messageText = "你希望欢迎动画如何称呼你？"
         let hint = "1–20 个字符。英文字母连笔书写，中文平滑显字。保存后，5.1s 和 8.1s 两版同时生效。"
         alert.informativeText = hint
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 340, height: 28))
+        let pane = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 96))
+        let input = NSTextField(frame: NSRect(x: 0, y: 66, width: 340, height: 28))
+        let appearance = NSPopUpButton(frame: NSRect(x: 0, y: 4, width: 340, height: 30))
+        appearance.addItems(withTitles: ["跟随系统（自动深色 / 浅色）", "浅色", "深色"])
+        let choices = ["system", "light", "dark"]
+        appearance.selectItem(at: choices.firstIndex(of: WelcomePreferences.read(at: config)["Theme"] as? String ?? "system") ?? 0)
+        let label = NSTextField(labelWithString: "动画外观")
+        label.frame = NSRect(x: 0, y: 38, width: 340, height: 22)
+        pane.addSubview(input); pane.addSubview(label); pane.addSubview(appearance)
         input.stringValue = WelcomePreferences.name(at: config)
-        alert.accessoryView = input
+        alert.accessoryView = pane
         alert.addButton(withTitle: "保存")
         alert.addButton(withTitle: "取消")
         NSApp.activate()
@@ -314,6 +283,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         while alert.runModal() == .alertFirstButtonReturn {
             do {
                 try WelcomePreferences.set(input.stringValue, forKey: "WelcomeName", at: config)
+                try WelcomePreferences.set(choices[appearance.indexOfSelectedItem], forKey: "Theme", at: config)
                 return
             } catch { alert.informativeText = error.localizedDescription + "\n\n" + hint }
         }
@@ -354,7 +324,9 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         root.addSubview(revealView)
         guard let imageURL = Bundle.main.url(forResource: "orb-motion", withExtension: "png"),
               let image = NSImage(contentsOf: imageURL) else { abort("缺少中央蓝球素材，请重新安装。"); return }
-        let nativeOrb = StartupOrbView(frame: root.bounds, image: image)
+        guard let tunnelURL = Bundle.main.url(forResource: darkTheme ? "tunnel-dark" : "tunnel-light", withExtension: "png", subdirectory: "docs"),
+              let tunnel = NSImage(contentsOf: tunnelURL) else { abort("缺少粒子通道素材"); return }
+        let nativeOrb = StartupOrbView(frame: root.bounds, image: image, tunnel: tunnel)
         nativeOrb.autoresizingMask = [.width, .height]
         root.addSubview(nativeOrb)
         startupCover = nativeOrb
@@ -378,7 +350,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         // The native centered orb stays responsive during WebKit's cold start.
         root.layoutSubtreeIfNeeded()
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName), URLQueryItem(name: "defer-start", value: "1"), URLQueryItem(name: "native-orb", value: "1")]
+        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName), URLQueryItem(name: "defer-start", value: "1"), URLQueryItem(name: "native-orb", value: "1"), URLQueryItem(name: "theme", value: darkTheme ? "dark" : "light")]
         if selfTest { components.queryItems?.append(URLQueryItem(name: "motion-test", value: "1")) }
         // URLSearchParams treats a literal + as a space; preserve plus signs in nicknames.
         components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
