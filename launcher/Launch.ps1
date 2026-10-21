@@ -147,12 +147,12 @@ try {
     $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&native-orb=1&name=$([Uri]::EscapeDataString($WelcomeName))"
     $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
-    else { $browserArgs += @('--kiosk',$url,'--edge-kiosk-type=fullscreen') }
+    else { $browserArgs += @(('--app='+$url),'--window-position=-32000,-32000','--window-size=800,600') }
     $windowStyle = if ($TestMode) {'Hidden'} else {'Normal'}
     $browserProcess = Start-Process -FilePath $edge -ArgumentList $browserArgs -PassThru -WindowStyle $windowStyle
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $prepared=$false; $presented=$false; $startupPhase='waiting'
-    $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $window=[IntPtr]::Zero
+    $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $browserOffscreen=$false; $window=[IntPtr]::Zero
     $desktopPrepared=$TestMode.IsPresent; $handoffReady=$false; $skipReveal=$false; $nextPreparation=0.0; $script:fullscreenExitRequestWindow=[IntPtr]::Zero
     $routes = @{ '/orb-cloud.png'='docs\orb-cloud.png'; '/glyphs.js'='docs\glyphs.js'; '/personalize.js'='docs\personalize.js'; '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
     Write-LaunchLog ("START variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
@@ -162,9 +162,16 @@ try {
             if ($TestMode) { throw 'The animation browser exited before completion.' }
             $skipReveal=$true; Write-LaunchLog 'Animation window closed; completing directly'; break
         }
-        if (-not $TestMode -and -not $topmost) {
+        if (-not $TestMode -and -not $browserOffscreen) {
             $browserProcess.Refresh(); $window=$browserProcess.MainWindowHandle
-            if ($window -ne [IntPtr]::Zero) { $topmost=$startupCover.PlaceBrowserBehind($window) }
+            if ($window -ne [IntPtr]::Zero) {
+                $browserOffscreen=$startupCover.PrepareBrowserOffscreen($window)
+                if($browserOffscreen){Write-LaunchLog ('BROWSER prepared offscreen '+$startupCover.BrowserPreparation)}
+            }
+        }
+        if(-not $TestMode -and $browserOffscreen -and $prepared -and -not $topmost){
+            $topmost=$startupCover.PlaceBrowserBehind($window)
+            if($topmost){Write-LaunchLog 'BROWSER painted before placement; moved behind native orb without fullscreen transition'}
         }
         if($startupCover -and $startupCover.Failure){throw $startupCover.Failure}
         if($prepared -and ($TestMode -or $topmost) -and $startupPhase -eq 'waiting'){$startupPhase='prepare'}

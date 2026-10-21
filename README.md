@@ -19,7 +19,7 @@
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.4.0 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.0/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.4.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -106,6 +106,8 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 桌面开场由原生组件直接播放 **60 fps 的云雾流动序列**，来自原有蓝球着色器，内部云雾持续运动，不再只缩放一张静态图片。Windows 使用原生绘图，Mac 使用 Core Animation；浏览器/WebKit 在后方准备 Logo 和书写。
 
 **只在原生蓝球已经完全内缩、消失后，才接入 Logo。** 网页时间线从 `1.72s` 的 Logo 起点继续，不再从零重放蓝球，也不再做两个可见蓝球的淡入淡出。交接两边使用相同的纯色底，避免整个画面颜色突变。浏览器加载较慢时，小球的云雾会持续流动，准备好后再内缩；这段额外等待不计入 5.1s / 8.1s 的设计动画时长。
+
+Windows v1.4.1 取消 Edge 的 kiosk/F11 窗口启动，避免 Windows 在小球上方播放黑色全屏缩放过渡。改用普通应用窗口：先在屏幕外创建，关闭该窗口的 DWM 出现动画、去掉边框，页面就绪后才放到原生小球后方。全屏尺寸的动画展示与 Codex 最大化行为保持。此修复只涉及 Windows；Mac 继续使用 v1.4.0。
 
 窗口辅助代码在 Windows 安装时编译，日常启动不重复编译；独立 Edge 进程关闭遮挡节流，原生交接遮罩预热后保持静止。实际启动时间和帧率取决于机器与图形驱动。仅播放本动画自己的资源，不读取桌面或 Codex 界面。开发者可运行 `node tools/build_orb_motion.cjs` 从着色器重新生成原生云雾序列。
 

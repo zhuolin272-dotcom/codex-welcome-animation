@@ -21,6 +21,7 @@ namespace CodexWelcome {
         [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(POINT point,uint flags);
         [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor,ref MONITORINFO info);
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h,IntPtr after,int x,int y,int width,int height,uint flags);
+        [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h,out RECT bounds);
         [DllImport("user32.dll")] private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
         [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr h,int index);
         [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr h,int index,int value);
@@ -43,12 +44,15 @@ namespace CodexWelcome {
         private IntPtr handle;
         private RECT monitor;
         private volatile bool ready,complete;
+        private IntPtr preparedBrowser;
+        private string browserPreparation;
         private volatile string failure;
         public bool IsReady { get { return ready; } }
         public bool IsComplete { get { return complete; } }
         public string Failure { get { return failure; } }
         public bool IsCollapsed { get { return collapsed; } }
         public int MotionFrames { get { return frames; } }
+        public string BrowserPreparation { get { return browserPreparation; } }
         public StartupCover(string path,double playbackSpeed) {
             imagePath=path;speed=playbackSpeed;
             Thread thread=new Thread(Run);thread.IsBackground=true;thread.SetApartmentState(ApartmentState.STA);thread.Start();
@@ -101,12 +105,34 @@ namespace CodexWelcome {
             if(p>=1)collapsed=true;
             if(!ready){ready=true;return;}
         }
-        public bool PlaceBrowserBehind(IntPtr browser) {
+        public bool PrepareBrowserOffscreen(IntPtr browser) {
             if(!ready || complete)return false;
             IntPtr previous=SetThreadDpiAwarenessContext(new IntPtr(-4));
             try {
-                // One atomic update makes the browser topmost while keeping our
-                // prepared frame above it. There is no uncovered intermediate frame.
+                // Edge kiosk/F11 animates a black fullscreen surface above other
+                // windows. Use an ordinary app window and disable DWM transitions
+                // while it is still offscreen, before giving it any screen area.
+                int disabled=1;
+                int result=DwmSetWindowAttribute(browser,3,ref disabled,4);
+                if(result!=0)throw new InvalidOperationException("Could not disable animation-window transitions: "+result);
+                DwmSetWindowAttribute(browser,33,ref disabled,4); // square corners on Windows 11
+                SetWindowLong(browser,-16,GetWindowLong(browser,-16)&~0x00cf0000);
+                SetWindowLong(browser,-20,(GetWindowLong(browser,-20)&~0x00040000)|0x00000080);
+                if((GetWindowLong(browser,-16)&0x00cf0000)!=0)throw new InvalidOperationException("The animation app window could not be made borderless.");
+                if(!SetWindowPos(browser,IntPtr.Zero,-32000,-32000,monitor.right-monitor.left,monitor.bottom-monitor.top,0x0034))return false;
+                RECT bounds;
+                if(!GetWindowRect(browser,out bounds) || bounds.right>monitor.left || bounds.bottom>monitor.top)return false;
+                preparedBrowser=browser;
+                browserPreparation=String.Format("left={0} top={1} width={2} height={3} caption=False transitionsDisabled=True",bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top);
+                return true;
+            } finally { if(previous!=IntPtr.Zero)SetThreadDpiAwarenessContext(previous); }
+        }
+        public bool PlaceBrowserBehind(IntPtr browser) {
+            if(!ready || complete || preparedBrowser!=browser)return false;
+            IntPtr previous=SetThreadDpiAwarenessContext(new IntPtr(-4));
+            try {
+                // Only the already-painted app surface is brought on-screen.
+                // The native moving orb stays above it in the same atomic update.
                 IntPtr batch=BeginDeferWindowPos(2);
                 if(batch==IntPtr.Zero)return false;
                 batch=DeferWindowPos(batch,browser,new IntPtr(-1),monitor.left,monitor.top,monitor.right-monitor.left,monitor.bottom-monitor.top,0x0050);
