@@ -103,8 +103,8 @@ function Close-AnimationWindow {
 }
 function Disable-AnimationTranslation([string]$ProfilePath) {
     # This profile belongs exclusively to the splash. Never deserialize and
-    # reserialize Edge's entire preferences in Windows PowerShell: adapted JSON
-    # strings can accumulate metadata and grow exponentially on repeat launches.
+    # reserialize Edge's entire preferences in Windows PowerShell: that round trip
+    # previously produced a multi-gigabyte file after repeated launches.
     # A bounded, literal config also repairs an oversized previous preferences.
     $preferencesPath=Join-Path $ProfilePath 'Default\Preferences'
     New-Item -ItemType Directory -Path (Split-Path $preferencesPath -Parent) -Force | Out-Null

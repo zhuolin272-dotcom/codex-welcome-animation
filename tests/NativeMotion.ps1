@@ -36,6 +36,9 @@ public static class NativeOrbPixels {
  public static int White(byte[] pixels) {
   int count=0;for(int i=0;i<pixels.Length;i+=4)if(pixels[i]>200&&pixels[i+1]>200&&pixels[i+2]>200)count++;return count;
  }
+ public static int Opaque(byte[] pixels) {
+  int count=0;for(int i=3;i<pixels.Length;i+=4)if(pixels[i]==255)count++;return count;
+ }
  public static void RenderRain(string path,double time,double fill) {
   Grid root=new Grid { Width=640,Height=400,Background=new SolidColorBrush(Color.FromRgb(30,34,41)) };
   root.Children.Add(new CodexWelcome.RainCurtain {Time=time,Fill=fill});
@@ -64,6 +67,8 @@ try {
  while(-not $opening.IsOrbVisible -and $watch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 5}
  if($watch.Elapsed.TotalSeconds -gt 2.5 -or $opening.RainFill -ne 1){throw 'Rain did not finish within two seconds independently of backend readiness'}
  $first=[NativeOrbPixels]::Read($opening)
+ # A fractional-DPI viewport can leave one antialiased edge row/column.
+ if([NativeOrbPixels]::Opaque($first) -lt ($first.Length/4)*.995){throw 'Rain did not completely cover the desktop before the orb'}
  Start-Sleep -Milliseconds 75
  $moving=[NativeOrbPixels]::Read($opening)
  $changed=[NativeOrbPixels]::Changes($first,$moving)
