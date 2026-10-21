@@ -43,7 +43,7 @@ for MODE in fast full settings; do
     chmod 755 "$APP/Contents/MacOS/CodexWelcome"
     cp "$BUILD/OpenAI.icns" "$APP/Contents/Resources/OpenAI.icns"
     cp "$ROOT/assets/startup-cloud.png" "$APP/Contents/Resources/startup-cloud.png"
-    cp "$ROOT/docs/animation.html" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
+    cp "$ROOT/docs/animation.html" "$ROOT/docs/orb-cloud.png" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
     cp "$ROOT/docs/vendor/gsap.min.js" "$APP/Contents/Resources/docs/vendor/gsap.min.js"
     cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

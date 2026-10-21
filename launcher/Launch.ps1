@@ -135,7 +135,7 @@ try {
         if(Test-Path -LiteralPath $nameConfig) { $WelcomeName=(Get-Content -LiteralPath $nameConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName }
     }
     if(-not $WelcomeName){$WelcomeName='JimmSun'}
-    foreach ($file in @('assets\startup-cloud.png','docs\animation.html','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
+    foreach ($file in @('assets\startup-cloud.png','docs\animation.html','docs\orb-cloud.png','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
     if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));DesktopMaximized=($null -ne $desktop -and [WelcomeWindow]::IsZoomed($desktop.MainWindowHandle));DesktopStyle= $(if($desktop){'0x{0:X8}' -f [WelcomeWindow]::GetWindowLong($desktop.MainWindowHandle,-16)});Resources='OK'} | ConvertTo-Json; exit 0 }
     $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback,0)
     $listener.Start()
@@ -154,7 +154,7 @@ try {
     $prepared=$false; $presented=$false; $startupPhase='waiting'
     $ready = $false; $complete=$false; $codexStarted=$false; $topmost=$false; $window=[IntPtr]::Zero
     $desktopPrepared=$TestMode.IsPresent; $handoffReady=$false; $skipReveal=$false; $nextPreparation=0.0; $script:fullscreenExitRequestWindow=[IntPtr]::Zero
-    $routes = @{ '/glyphs.js'='docs\glyphs.js'; '/personalize.js'='docs\personalize.js'; '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
+    $routes = @{ '/orb-cloud.png'='docs\orb-cloud.png'; '/glyphs.js'='docs\glyphs.js'; '/personalize.js'='docs\personalize.js'; '/animation.html'='docs\animation.html'; '/vendor/gsap.min.js'='docs\vendor\gsap.min.js'; '/favicon.ico'='assets\app.ico' }
     Write-LaunchLog ("START variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
     while ($watch.Elapsed.TotalSeconds -lt 45 -and -not $handoffReady) {
         $browserProcess.Refresh()
@@ -215,7 +215,7 @@ try {
                 else{$body=[Text.Encoding]::UTF8.GetBytes(('{"phase":"'+$startupPhase+'"}'))}
             }
             elseif ($routes.ContainsKey($path) -and (Test-Path -LiteralPath (Join-Path $root $routes[$path]))) {
-                $body=[IO.File]::ReadAllBytes((Join-Path $root $routes[$path]));$contentType=if($path.EndsWith('.js')){'text/javascript; charset=utf-8'}elseif($path.EndsWith('.ico')){'image/x-icon'}else{'text/html; charset=utf-8'}
+                $body=[IO.File]::ReadAllBytes((Join-Path $root $routes[$path]));$contentType=if($path.EndsWith('.js')){'text/javascript; charset=utf-8'}elseif($path.EndsWith('.png')){'image/png'}elseif($path.EndsWith('.ico')){'image/x-icon'}else{'text/html; charset=utf-8'}
             }
             else { $status='404 Not Found';$body=[Text.Encoding]::UTF8.GetBytes('Not found');$contentType='text/plain' }
             $headers=[Text.Encoding]::ASCII.GetBytes("HTTP/1.1 $status`r`nContent-Type: $contentType`r`nContent-Length: $($body.Length)`r`nCache-Control: no-store`r`nConnection: close`r`n`r`n")
