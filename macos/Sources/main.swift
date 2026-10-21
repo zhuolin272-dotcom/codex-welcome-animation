@@ -3,6 +3,7 @@ import ApplicationServices
 import Darwin
 import UniformTypeIdentifiers
 import WebKit
+import QuartzCore
 
 private let arguments = Set(CommandLine.arguments.dropFirst())
 private let selfTest = arguments.contains("--self-test")
@@ -61,6 +62,38 @@ private final class RevealView: NSView {
     }
 }
 
+private final class StartupOrbView: NSView {
+    private let orb = CALayer()
+    init(frame: NSRect, image: NSImage) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = paper.cgColor
+        var rect = NSRect(origin: .zero, size: image.size)
+        orb.contents = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        orb.masksToBounds = true
+        layer?.addSublayer(orb)
+        let breathing = CAKeyframeAnimation(keyPath: "transform")
+        breathing.values = (0...60).map { index in
+            let jelly = 0.014 * sin(Double(index) / 60 * .pi * 2)
+            return NSValue(caTransform3D: CATransform3DMakeScale(1 + jelly, 1 / (1 + jelly), 1))
+        }
+        breathing.duration = .pi * 2 / 5
+        breathing.repeatCount = .infinity
+        orb.add(breathing, forKey: "breathing")
+    }
+    required init?(coder: NSCoder) { fatalError("Not supported") }
+    override func layout() {
+        super.layout()
+        let diameter = 280 * min(bounds.width / 1920, bounds.height / 1080)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        orb.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
+        orb.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        orb.cornerRadius = diameter / 2
+        CATransaction.commit()
+    }
+}
+
 private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private var window: WelcomeWindow!
     private var webView: WKWebView!
@@ -84,7 +117,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
     private var docs: URL!
     private var welcomeName = "JimmSun"
     private var startupPhase = "loading"
-    private var startupCover: NSImageView?
+    private var startupCover: StartupOrbView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -201,6 +234,26 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         revealView = RevealView(frame: root.bounds)
         revealView.autoresizingMask = [.width, .height]
         root.addSubview(revealView)
+        guard let imageURL = Bundle.main.url(forResource: "startup-cloud", withExtension: "png"),
+              let image = NSImage(contentsOf: imageURL) else { abort("缺少中央蓝球素材，请重新安装。"); return }
+        let nativeOrb = StartupOrbView(frame: root.bounds, image: image)
+        nativeOrb.autoresizingMask = [.width, .height]
+        root.addSubview(nativeOrb)
+        startupCover = nativeOrb
+        window.onEscape = { [weak self] in self?.skipIntro() }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        root.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        log("CENTRAL ORB native visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; WebKit warming behind it")
+        if selfTest, let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--native-startup-snapshot=") }) {
+            guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(root.bounds.width), pixelsHigh: Int(root.bounds.height), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+                  let context = NSGraphicsContext(bitmapImageRep: bitmap) else { abort("Cannot validate native startup orb"); return }
+            nativeOrb.layer?.render(in: context.cgContext)
+            guard let png = bitmap.representation(using: .png, properties: [:]) else { abort("Cannot encode native startup orb"); return }
+            do { try png.write(to: URL(fileURLWithPath: String(argument.dropFirst("--native-startup-snapshot=".count))), options: .atomic) }
+            catch { abort(error.localizedDescription); return }
+        }
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.userContentController.add(self, name: "codexWelcome")
@@ -208,9 +261,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
         webView.underPageBackgroundColor = paper
-        root.addSubview(webView)
-        window.onEscape = { [weak self] in self?.skipIntro() }
-        // Keep the window ordered out until the actual first frame is ready.
+        root.addSubview(webView, positioned: .below, relativeTo: nativeOrb)
+        // The native centered orb stays responsive during WebKit's cold start.
         root.layoutSubtreeIfNeeded()
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName), URLQueryItem(name: "defer-start", value: "1")]
@@ -229,12 +281,12 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         configuration.afterScreenUpdates = true
         webView.takeSnapshot(with: configuration) { [weak self] image, error in
             guard let self = self, !self.finishing, !self.revealing else { return }
-            guard let image = image, error == nil, let root = self.window.contentView else {
+            guard let image = image, error == nil else {
                 self.abort(error?.localizedDescription ?? "无法准备动画首帧。")
                 return
             }
             if selfTest {
-                guard !self.window.isVisible else { self.abort("Startup window appeared before its first frame"); return }
+                guard self.window.isVisible, self.startupCover != nil else { self.abort("Native orb did not cover WebKit startup"); return }
                 if let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--startup-snapshot=") }),
                    let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
                    let png = bitmap.representation(using: .png, properties: [:]) {
@@ -242,19 +294,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
                     catch { self.abort(error.localizedDescription); return }
                 }
             }
-            // Only the centered orb on paper is prepared; there is no full-screen blue phase.
-            let cover = NSImageView(frame: root.bounds)
-            cover.image = image
-            cover.imageScaling = .scaleAxesIndependently
-            cover.autoresizingMask = [.width, .height]
-            root.addSubview(cover)
-            self.startupCover = cover
             self.startupPhase = "presenting"
-            log("CENTRAL ORB ready; showing centered orb, no full-screen blue")
-            self.window.makeKeyAndOrderFront(nil)
-            log("CENTRAL ORB visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - self.started))s")
-            NSApp.activate()
-            self.window.displayIfNeeded()
+            log("CENTRAL ORB web ready; continuing centered orb, no full-screen blue")
             self.webView.evaluateJavaScript("window.__prepareWelcomeDisplay()") { result, error in
                 if let error = error { self.abort(error.localizedDescription) }
                 else if result as? Bool != true { self.abort("动画首帧未能提交。") }

@@ -14,7 +14,7 @@ for ARCH in $ARCHS; do
     case "$ARCH" in arm64|x86_64) ;; *) echo "Unsupported architecture: $ARCH" >&2; exit 1;; esac
     BINARY="$BUILD/CodexWelcome-$ARCH"
     /usr/bin/xcrun swiftc -swift-version 5 -O -sdk "$SDK" -target "$ARCH-apple-macosx14.0" \
-        -framework AppKit -framework WebKit -framework ApplicationServices \
+        -framework AppKit -framework WebKit -framework ApplicationServices -framework QuartzCore \
         "$HERE/Sources/Geometry.swift" "$HERE/Sources/Preferences.swift" "$HERE/Sources/main.swift" -o "$BINARY"
     BINARIES+=("$BINARY")
 done
@@ -42,6 +42,7 @@ for MODE in fast full settings; do
     cp "$BUILD/CodexWelcome" "$APP/Contents/MacOS/CodexWelcome"
     chmod 755 "$APP/Contents/MacOS/CodexWelcome"
     cp "$BUILD/OpenAI.icns" "$APP/Contents/Resources/OpenAI.icns"
+    cp "$ROOT/assets/startup-cloud.png" "$APP/Contents/Resources/startup-cloud.png"
     cp "$ROOT/docs/animation.html" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
     cp "$ROOT/docs/vendor/gsap.min.js" "$APP/Contents/Resources/docs/vendor/gsap.min.js"
     cat > "$APP/Contents/Info.plist" <<PLIST
