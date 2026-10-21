@@ -14,6 +14,8 @@ foreach ($required in @('launcher\StartupCover.cs','assets\startup-cloud.png','l
     if (-not (Test-Path -LiteralPath (Join-Path $destination $required) -PathType Leaf)) { throw "Installation is incomplete: $required" }
 }
 Set-Content -LiteralPath $marker -Value 'CodexWelcome v1' -Encoding ASCII
+& (Join-Path $destination 'launcher\BuildNative.ps1') -Force
+
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
 $bootstrap=Join-Path $destination 'CodexWelcome.exe'

@@ -17,6 +17,13 @@ for row in 0..<24 {
     }
 }
 precondition(Double(dark)/Double(count) < 0.01, "The startup frame contains a black surface")
-precondition(Double(blue)/Double(count) > 0.05, "The startup frame is missing the blue cloud")
+precondition(Double(blue)/Double(count) > 0.008, "The startup frame is missing the blue cloud")
 precondition(Double(opaque)/Double(count) > 0.99, "The startup frame is transparent")
-print("Startup frame: opaque blue cloud, no black surface PASS (\(image.pixelsWide)x\(image.pixelsHigh))")
+precondition(Double(blue)/Double(count) < 0.12, "The orb fills too much of the screen")
+let center = image.colorAt(x: image.pixelsWide/2, y: image.pixelsHigh/2)!.usingColorSpace(.deviceRGB)!
+precondition(center.blueComponent > center.redComponent + 0.03, "Missing centered blue orb")
+for (x, y) in [(0, 0), (image.pixelsWide-1, 0), (0, image.pixelsHigh-1), (image.pixelsWide-1, image.pixelsHigh-1)] {
+    let c = image.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
+    precondition(c.redComponent > 0.9 && c.greenComponent > 0.9 && c.blueComponent > 0.9, "Full-screen blue startup regressed")
+}
+print("Startup frame: centered small blue orb, paper corners, no black surface PASS (\(image.pixelsWide)x\(image.pixelsHigh))")

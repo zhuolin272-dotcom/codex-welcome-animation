@@ -69,7 +69,7 @@ bash macos/build.sh
 bash macos/smoke.sh
 ```
 
-生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查窗口显示前首帧已就绪、播放从零点开始，并对首帧图像检查蓝色云雾、透明度及黑色空白；不启动 Codex，也不请求辅助功能权限。
+生成文件位于 `macos/dist/Codex-Welcome-macOS/`，可分发 ZIP 位于 `macos/dist/Codex-Welcome-macOS.zip`。`macos/smoke.sh` 会完整播放两个版本，检查窗口显示前首帧已就绪、播放从零点开始，并对首帧图像检查中央小球、浅色四角、透明度及黑色空白；不启动 Codex，也不请求辅助功能权限。
 
 默认构建 Universal；只需 Apple Silicon 时：
 

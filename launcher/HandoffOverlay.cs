@@ -73,12 +73,14 @@ namespace CodexWelcome {
                     Content = new Rectangle { Fill = aperture }
                 };
                 window.Closed += delegate { complete = true; dispatcher.BeginInvokeShutdown(DispatcherPriority.Background); };
+                window.SizeChanged += delegate { if(animation == null) UpdateAperture(0); };
                 window.Show();
                 IntPtr handle = new WindowInteropHelper(window).Handle;
                 SetWindowLong(handle,-20,GetWindowLong(handle,-20)|0x08000000|0x00000080);
                 // Place the cover directly behind the splash before it is visible.
                 SetWindowPos(handle,splash,info.monitor.left,info.monitor.top,
                     info.monitor.right-info.monitor.left,info.monitor.bottom-info.monitor.top,0x0050);
+                window.UpdateLayout();
                 UpdateAperture(0);
                 window.Opacity = 1;
                 CompositionTarget.Rendering += Render;
@@ -100,7 +102,7 @@ namespace CodexWelcome {
         }
 
         private void Render(object sender, EventArgs e) {
-            if(animation == null) { UpdateAperture(0); return; }
+            if(animation == null) return;
             double p = animation.Elapsed.TotalSeconds/duration;
             UpdateAperture(Math.Min(1,p));
             // Keep one transparent frame before removing the cover.

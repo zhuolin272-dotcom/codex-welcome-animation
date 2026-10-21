@@ -13,3 +13,4 @@ node_modules/
 CodexWelcome.exe
 macos/.build/
 macos/dist/
+launcher/WelcomeNative.dll

@@ -111,48 +111,23 @@ function Disable-AnimationTranslation([string]$ProfilePath) {
 $listener = $null; $browserProcess = $null; $mutex = $null; $ownsMutex = $false; $handoffOverlay=$null; $startupCover=$null
 try {
     Write-LaunchLog ("ENTRY variant={0} test={1}" -f $Variant,$TestMode.IsPresent)
-Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-public static class WelcomeWindow {
- [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,IntPtr after,int x,int y,int w,int z,uint flags);
- [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int index);
- [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h,int index,int value);
- [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr h,uint key,byte alpha,uint flags);
- [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h,int command);
- [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
- [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr h);
- [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
- [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
- [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
- [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr h,uint flags);
- [DllImport("user32.dll")] private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
- [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor,ref MONITORINFO info);
- [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr h,int attribute,out RECT rect,int size);
- [DllImport("user32.dll")] private static extern void keybd_event(byte key,byte scan,uint flags,UIntPtr extra);
- [StructLayout(LayoutKind.Sequential)] private struct RECT {public int left,top,right,bottom;}
- [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO {public int size;public RECT monitor,work;public uint flags;}
- public static bool IsFullscreen(IntPtr h) {
-    // A normal/maximized captioned window is never Electron's F11 fullscreen.
-    // DWM bounds can briefly retain the old monitor rectangle during restore.
-    if((GetWindowLong(h,-16)&0x00c00000)!=0) return false;
-    IntPtr previous=SetThreadDpiAwarenessContext(new IntPtr(-4));
-    try {
-    RECT bounds; MONITORINFO info=new MONITORINFO();info.size=Marshal.SizeOf(info);
-    if(IsIconic(h) || DwmGetWindowAttribute(h,9,out bounds,Marshal.SizeOf(typeof(RECT)))!=0 || !GetMonitorInfo(MonitorFromWindow(h,2),ref info)) return false;
-    return Math.Abs(bounds.left-info.monitor.left)<=2 && Math.Abs(bounds.top-info.monitor.top)<=2 && Math.Abs(bounds.right-info.monitor.right)<=2 && Math.Abs(bounds.bottom-info.monitor.bottom)<=2;
-    } finally {if(previous!=IntPtr.Zero) SetThreadDpiAwarenessContext(previous);}
- }
- public static bool ExitNativeFullscreen(IntPtr h) {
-    if(!IsFullscreen(h) || GetForegroundWindow()!=h) return false;
-    keybd_event(0x7a,0x57,0,UIntPtr.Zero);keybd_event(0x7a,0x57,2,UIntPtr.Zero);
-    return true;
- }
-}
-'@
-    $framework=[Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()
-    $overlayReferences=@((Join-Path $framework 'System.dll'),(Join-Path $framework 'System.Xaml.dll'),(Join-Path $framework 'WPF\WindowsBase.dll'),(Join-Path $framework 'WPF\PresentationCore.dll'),(Join-Path $framework 'WPF\PresentationFramework.dll'))
-    Add-Type -Path @((Join-Path $PSScriptRoot 'HandoffOverlay.cs'),(Join-Path $PSScriptRoot 'StartupCover.cs')) -ReferencedAssemblies $overlayReferences
+    $nativeLibrary=Join-Path $PSScriptRoot 'WelcomeNative.dll'
+    if(-not (Test-Path -LiteralPath $nativeLibrary)){ & (Join-Path $PSScriptRoot 'BuildNative.ps1') }
+    Add-Type -Path $nativeLibrary
+    if(-not $ValidateOnly){
+        $created = $false
+        $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
+        $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
+        if (-not $created) { Write-LaunchLog 'BUSY another animation is running'; exit 0 }; $ownsMutex=$true
+    }
+    if(-not $TestMode -and -not $ValidateOnly){
+        $startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\startup-cloud.png')
+        $coverWatch=[Diagnostics.Stopwatch]::StartNew()
+        while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
+        if($startupCover.Failure){throw $startupCover.Failure}
+        if(-not $startupCover.IsReady){throw 'Startup frame cover was not ready.'}
+        Write-LaunchLog 'CENTRAL ORB visible and breathing; browser warming behind it'
+    }
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
     if (-not $PSBoundParameters.ContainsKey('WelcomeName')) {
@@ -162,10 +137,6 @@ public static class WelcomeWindow {
     if(-not $WelcomeName){$WelcomeName='JimmSun'}
     foreach ($file in @('assets\startup-cloud.png','docs\animation.html','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
     if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));DesktopMaximized=($null -ne $desktop -and [WelcomeWindow]::IsZoomed($desktop.MainWindowHandle));DesktopStyle= $(if($desktop){'0x{0:X8}' -f [WelcomeWindow]::GetWindowLong($desktop.MainWindowHandle,-16)});Resources='OK'} | ConvertTo-Json; exit 0 }
-    $created = $false
-    $mutexName = if ($TestMode) {'Local\CodexWelcomeTest'} else {'Local\CodexWelcomeLauncher'}
-    $mutex = New-Object System.Threading.Mutex($true,$mutexName,[ref]$created)
-    if (-not $created) { Write-LaunchLog 'BUSY another animation is running'; exit 0 }; $ownsMutex=$true
     $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback,0)
     $listener.Start()
     $port = $listener.LocalEndpoint.Port
@@ -174,17 +145,9 @@ public static class WelcomeWindow {
     $profile = Join-Path $root $profileName
     Disable-AnimationTranslation $profile
     $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&name=$([Uri]::EscapeDataString($WelcomeName))"
-    $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding')
+    $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
     else { $browserArgs += @('--kiosk',$url,'--edge-kiosk-type=fullscreen') }
-    if(-not $TestMode){
-        $startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\startup-cloud.png')
-        $coverWatch=[Diagnostics.Stopwatch]::StartNew()
-        while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
-        if($startupCover.Failure){throw $startupCover.Failure}
-        if(-not $startupCover.IsReady){throw 'Startup frame cover was not ready.'}
-        Write-LaunchLog 'FIRST FRAME native blue cover ready before browser launch'
-    }
     $windowStyle = if ($TestMode) {'Hidden'} else {'Normal'}
     $browserProcess = Start-Process -FilePath $edge -ArgumentList $browserArgs -PassThru -WindowStyle $windowStyle
     $watch = [Diagnostics.Stopwatch]::StartNew()

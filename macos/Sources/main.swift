@@ -242,7 +242,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
                     catch { self.abort(error.localizedDescription); return }
                 }
             }
-            // This is our own animation frame, never a screenshot of the user's desktop.
+            // Only the centered orb on paper is prepared; there is no full-screen blue phase.
             let cover = NSImageView(frame: root.bounds)
             cover.image = image
             cover.imageScaling = .scaleAxesIndependently
@@ -250,8 +250,9 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             root.addSubview(cover)
             self.startupCover = cover
             self.startupPhase = "presenting"
-            log("FIRST FRAME ready; showing prepared frame")
+            log("CENTRAL ORB ready; showing centered orb, no full-screen blue")
             self.window.makeKeyAndOrderFront(nil)
+            log("CENTRAL ORB visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - self.started))s")
             NSApp.activate()
             self.window.displayIfNeeded()
             self.webView.evaluateJavaScript("window.__prepareWelcomeDisplay()") { result, error in

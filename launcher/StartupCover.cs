@@ -10,7 +10,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace CodexWelcome {
-    // Prepared animation pixels cover the browser's first, unpainted window.
+    // A small, gently animated orb responds while the browser warms up behind it.
     public sealed class StartupCover : IDisposable {
         [StructLayout(LayoutKind.Sequential)] private struct POINT { public int x,y; }
         [StructLayout(LayoutKind.Sequential)] private struct RECT { public int left,top,right,bottom; }
@@ -31,6 +31,8 @@ namespace CodexWelcome {
         private Window window;
         private Canvas canvas;
         private Image cloud;
+        private readonly Stopwatch animation=Stopwatch.StartNew();
+        private ScaleTransform breathing;
         private Stopwatch dismiss;
         private IntPtr handle;
         private RECT monitor;
@@ -53,7 +55,8 @@ namespace CodexWelcome {
                 monitor=info.monitor;
                 BitmapImage image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.UriSource=new Uri(imagePath);image.EndInit();image.Freeze();
                 canvas=new Canvas { ClipToBounds=true, Background=new SolidColorBrush(Color.FromRgb(247,246,242)) };
-                cloud=new Image { Source=image,Stretch=Stretch.Fill };canvas.Children.Add(cloud);
+                breathing=new ScaleTransform(1,1);
+                cloud=new Image { Source=image,Stretch=Stretch.Fill,RenderTransform=breathing,RenderTransformOrigin=new Point(.5,.5) };canvas.Children.Add(cloud);
                 window=new Window { Title="Codex Welcome Startup",WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,
                     AllowsTransparency=true,Background=Brushes.Transparent,ShowInTaskbar=false,ShowActivated=false,Topmost=true,Opacity=0,
                     Width=800,Height=600,Content=canvas };
@@ -73,12 +76,15 @@ namespace CodexWelcome {
             if(window==null || cloud==null)return;
             double width=Math.Max(1,window.ActualWidth),height=Math.Max(1,window.ActualHeight);
             double fit=Math.Min(width/1920,height/1080);
-            double scale=Math.Max(9.2,Math.Sqrt(width*width+height*height)/(280*fit)*1.1);
-            double diameter=280*fit*scale;
+            double diameter=280*fit;
             cloud.Width=cloud.Height=diameter;
+            cloud.Clip=new EllipseGeometry(new Point(diameter/2,diameter/2),diameter/2,diameter/2);
             Canvas.SetLeft(cloud,(width-diameter)/2);Canvas.SetTop(cloud,(height-diameter)/2);
         }
         private void Render(object sender,EventArgs e) {
+            double t=animation.Elapsed.TotalSeconds;
+            double jelly=.014*Math.Sin(t*5);
+            breathing.ScaleX=1+jelly;breathing.ScaleY=1/(1+jelly);
             if(!ready){ready=true;return;}
             if(dismiss==null)return;
             double p=Math.Min(1,dismiss.Elapsed.TotalSeconds/.12);

@@ -10,6 +10,17 @@ const {chromium}=require('playwright');
   const url=pathToFileURL(path.resolve(__dirname,'../docs/animation.html'));
   url.search=new URLSearchParams({play:'1',launch:'1','defer-start':'1','motion-test':'1',name:'Alex+Sun'});
   await page.goto(url.href);await page.waitForFunction(()=>window.bootMessages.some(m=>m.kind==='prepared'));
+  for(const [width,height] of [[1920,1080],[1536,864],[1280,1024],[2560,1440],[3440,1440],[900,1200]]){
+   await page.setViewportSize({width,height});
+   const frame=await page.evaluate(()=>{
+    fitStage();const r=document.getElementById('orb').getBoundingClientRect();
+    return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height,width:innerWidth,height:innerHeight,canvas:[canvas.width,canvas.height]};
+   });
+   assert.ok(Math.abs(frame.x-width/2)<.2 && Math.abs(frame.y-height/2)<.2,'Opening orb is not centered');
+   assert.ok(frame.w<width*.3 && frame.h<height*.3,'Full-screen blue first frame regressed');
+   assert.deepEqual(frame.canvas,[320,320]);
+  }
+  await page.setViewportSize({width:1280,height:832});
   await page.waitForTimeout(200);
   assert.equal(await page.evaluate(()=>window.__voiceDiagnostics.state.time),0,'Timeline ran before its first frame was presented');
   assert.equal(await page.evaluate(()=>window.__startWelcome()),false,'Timeline accepted an early start');
