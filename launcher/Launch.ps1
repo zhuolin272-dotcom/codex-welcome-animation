@@ -69,9 +69,16 @@ function Prepare-MaximizedDesktop {
 function Start-Codex([switch]$Reveal,[switch]$SkipLaunch) {
     if ($verificationOnly) { return }
     if (-not $SkipLaunch) {
-        if ($target.Kind -eq 'exe') { Start-Process -FilePath $target.Path -WindowStyle Normal | Out-Null }
-        else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
-        Write-LaunchLog ("DESKTOP requested kind={0} target={1}" -f $target.Kind,$target.Path)
+        $existing=Find-DesktopProcess
+        if($existing) {
+            # Reopening a running app can reset the conversation's scroll state.
+            # Restore its window through Win32, without sending another app-open request.
+            Write-LaunchLog ('DESKTOP reused existing window pid={0}; no app-open request' -f $existing.Id)
+        } else {
+            if ($target.Kind -eq 'exe') { Start-Process -FilePath $target.Path -WindowStyle Normal | Out-Null }
+            else { Start-Process -FilePath explorer.exe -ArgumentList ('shell:AppsFolder\'+$target.Path) -WindowStyle Normal | Out-Null }
+            Write-LaunchLog ("DESKTOP requested kind={0} target={1}" -f $target.Kind,$target.Path)
+        }
     }
     if (-not $Reveal) { return }
     $activationWatch=[Diagnostics.Stopwatch]::StartNew()
