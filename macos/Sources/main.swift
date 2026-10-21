@@ -149,8 +149,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             }
             screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main ?? NSScreen.screens.first
             guard screen != nil else { throw failure("没有可用的显示器。") }
-            showAnimation()
             started = ProcessInfo.processInfo.systemUptime
+            showAnimation()
             polling = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in self?.poll() }
             log("START variant=\(variant) selfTest=\(selfTest)")
         } catch { abort(error.localizedDescription) }
@@ -317,8 +317,12 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
                 abort("Startup timeline advanced before its first visible frame"); return
             }
             startupPhase = "running"
-            startupCover?.removeFromSuperview()
+            let nativeOrb = startupCover
             startupCover = nil
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.1
+                nativeOrb?.animator().alphaValue = 0
+            }, completionHandler: { nativeOrb?.removeFromSuperview() })
             log("FIRST FRAME presented; starting timeline at zero")
             webView.evaluateJavaScript("window.__startWelcome()") { [weak self] result, error in
                 guard let self = self, !self.finishing else { return }
@@ -438,7 +442,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
 
     private func skipIntro() {
         if revealing { finish(); return }
-        webView.evaluateJavaScript("window.__timelines?.['jimmsun-intro']?.progress(1)")
+        webView?.evaluateJavaScript("window.__timelines?.['jimmsun-intro']?.progress(1)")
         introComplete = true
         openCodex()
         poll()
