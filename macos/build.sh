@@ -42,7 +42,7 @@ for MODE in fast full settings; do
     cp "$BUILD/CodexWelcome" "$APP/Contents/MacOS/CodexWelcome"
     chmod 755 "$APP/Contents/MacOS/CodexWelcome"
     cp "$BUILD/OpenAI.icns" "$APP/Contents/Resources/OpenAI.icns"
-    cp "$ROOT/assets/startup-cloud.png" "$APP/Contents/Resources/startup-cloud.png"
+    cp "$ROOT/assets/orb-motion.png" "$APP/Contents/Resources/orb-motion.png"
     cp "$ROOT/docs/animation.html" "$ROOT/docs/orb-cloud.png" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
     cp "$ROOT/docs/vendor/gsap.min.js" "$APP/Contents/Resources/docs/vendor/gsap.min.js"
     cat > "$APP/Contents/Info.plist" <<PLIST
@@ -54,8 +54,8 @@ for MODE in fast full settings; do
 <key>CFBundleName</key><string>$NAME</string>
 <key>CFBundleDisplayName</key><string>$NAME</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.3.0</string>
-<key>CFBundleVersion</key><string>130</string>
+<key>CFBundleShortVersionString</key><string>1.4.0</string>
+<key>CFBundleVersion</key><string>140</string>
 <key>CFBundleIconFile</key><string>OpenAI</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>

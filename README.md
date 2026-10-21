@@ -19,7 +19,7 @@
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.3.0 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.3.0/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.4.0 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.0/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -43,9 +43,9 @@ Mac 版使用原生 `.app`，两种速度、透明 Logo、果冻收拢与真实�
 
 Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 
-- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.3.0/Codex-Welcome-macOS-AppleSilicon.zip)。
-- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.3.0/Codex-Welcome-macOS-universal.zip)。
-- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.3.0)。
+- **M 系列 Mac / 最新 macOS：**[Apple Silicon 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.0/Codex-Welcome-macOS-AppleSilicon.zip)。
+- **Intel Mac / 双架构分发：**[Universal 下载](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.4.0/Codex-Welcome-macOS-universal.zip)。
+- [发布记录与实际构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.4.0)。
 
 下载并解压后，双击 `Install.command`，或直接把两种速度和 `Codex Settings.app` 拖入应用程序文件夹。自动最大化 Codex 需要首次授予辅助功能权限；不需要屏幕录制权限。也可暂时保留窗口大小继续使用。
 
@@ -103,9 +103,11 @@ Codex 已运行时会回到现有窗口；未运行时会启动程序。启动�
 
 开场直接是**屏幕中央的小尺寸蓝球**，取消全屏放大的蓝色首帧和从整屏收成小球的阶段。小球在原位轻柔呼吸，然后沿用内缩、旋转 Logo、书写与果冻交接。5.1s / 8.1s 两种节奏保留。
 
-Windows 启动时先显示中央的呼吸小球，浏览器在后方预热，再接入同尺寸的实时云雾。窗口辅助代码在安装时编译成 `WelcomeNative.dll`，日常启动只加载，减少每次双击的等待；源码直接启动时，首次运行会自动编译一次。Mac 也先用 Core Animation 显示原生中央呼吸小球，在后方预热 WebKit，云雾就绪后接入播放；不再等待 WebKit 冷启动完成才响应双击。两端均关闭系统默认的窗口出现动画。
+桌面开场由原生组件直接播放 **60 fps 的云雾流动序列**，来自原有蓝球着色器，内部云雾持续运动，不再只缩放一张静态图片。Windows 使用原生绘图，Mac 使用 Core Animation；浏览器/WebKit 在后方准备 Logo 和书写。
 
-云雾着色器从 512×512、四层噪声改为 320×320、三层噪声，减少约 71% 的噪声采样量，并跳过重复零点绘制和多余的 GPU 同步等待。独立的 Edge 动画进程关闭原生窗口遮挡节流，原生交接遮罩在预热完成后保持静止，避免后台重绘挤占动画资源。WebGL 不可用或首帧尚未提交时使用同源云雾纹理，保持原生与网页小球一致。实际帧率和冷启动时间取决于机器及图形驱动。预备图像只属于本动画，不读取桌面或 Codex 界面。开发者可运行 `node tools/export_startup_cloud.cjs` 更新 Windows 蓝球素材。
+**只在原生蓝球已经完全内缩、消失后，才接入 Logo。** 网页时间线从 `1.72s` 的 Logo 起点继续，不再从零重放蓝球，也不再做两个可见蓝球的淡入淡出。交接两边使用相同的纯色底，避免整个画面颜色突变。浏览器加载较慢时，小球的云雾会持续流动，准备好后再内缩；这段额外等待不计入 5.1s / 8.1s 的设计动画时长。
+
+窗口辅助代码在 Windows 安装时编译，日常启动不重复编译；独立 Edge 进程关闭遮挡节流，原生交接遮罩预热后保持静止。实际启动时间和帧率取决于机器与图形驱动。仅播放本动画自己的资源，不读取桌面或 Codex 界面。开发者可运行 `node tools/build_orb_motion.cjs` 从着色器重新生成原生云雾序列。
 
 ## 浏览器预览
 
@@ -159,7 +161,7 @@ python tools/build.py --name JimmSun --greeting welcome
 docs/                         可离线运行、可静态部署的预览
 source/animation.template.html  动画、弹簧曲线、云雾着色器与交接逻辑
 tools/build.py                SVG 手写字形生成器
-launcher/StartupCover.cs       Windows 原生蓝色首帧保护与交接
+launcher/StartupCover.cs       Windows 原生云雾开场与消失后交接
 tools/export_startup_cloud.cjs 从 t=0 着色器生成 Windows 首帧素材
 launcher/Launch.ps1            本地服务、全屏窗口与 Codex 交接
 launcher/HandoffOverlay.cs     原生透明果冻展开遮罩，显露真实 Codex

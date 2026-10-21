@@ -121,12 +121,12 @@ try {
         if (-not $created) { Write-LaunchLog 'BUSY another animation is running'; exit 0 }; $ownsMutex=$true
     }
     if(-not $TestMode -and -not $ValidateOnly){
-        $startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\startup-cloud.png')
+        $startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),$(if($Variant -eq 'full'){1.0}else{1.6})
         $coverWatch=[Diagnostics.Stopwatch]::StartNew()
         while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
         if($startupCover.Failure){throw $startupCover.Failure}
         if(-not $startupCover.IsReady){throw 'Startup frame cover was not ready.'}
-        Write-LaunchLog 'CENTRAL ORB visible and breathing; browser warming behind it'
+        Write-LaunchLog 'LIVE ORB flowing from first visible frame; native opening owns the orb'
     }
     $edge = Find-Edge
     $target = if ($TestMode) { @{Kind='test';Path='none'} } else { Find-Codex }
@@ -135,7 +135,7 @@ try {
         if(Test-Path -LiteralPath $nameConfig) { $WelcomeName=(Get-Content -LiteralPath $nameConfig -Raw -Encoding UTF8 | ConvertFrom-Json).WelcomeName }
     }
     if(-not $WelcomeName){$WelcomeName='JimmSun'}
-    foreach ($file in @('assets\startup-cloud.png','docs\animation.html','docs\orb-cloud.png','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
+    foreach ($file in @('assets\orb-motion.png','docs\animation.html','docs\orb-cloud.png','docs\glyphs.js','docs\personalize.js','docs\vendor\gsap.min.js')) { if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "Missing resource: $file" } }
     if ($ValidateOnly) { $desktop=Find-DesktopProcess; [pscustomobject]@{Variant=$Variant;WelcomeName=$WelcomeName;Edge=$edge;CodexKind=$target.Kind;Codex=$target.Path;DesktopFullscreen=($null -ne $desktop -and [WelcomeWindow]::IsFullscreen($desktop.MainWindowHandle));DesktopMaximized=($null -ne $desktop -and [WelcomeWindow]::IsZoomed($desktop.MainWindowHandle));DesktopStyle= $(if($desktop){'0x{0:X8}' -f [WelcomeWindow]::GetWindowLong($desktop.MainWindowHandle,-16)});Resources='OK'} | ConvertTo-Json; exit 0 }
     $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback,0)
     $listener.Start()
@@ -144,7 +144,7 @@ try {
     $profileName = if ($TestMode) {'browser-test-profile'} else {'browser-profile'}
     $profile = Join-Path $root $profileName
     Disable-AnimationTranslation $profile
-    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&name=$([Uri]::EscapeDataString($WelcomeName))"
+    $url = "http://127.0.0.1:$port/animation.html?play=1&launch=1&variant=$Variant&token=$nonce&defer-start=1&native-orb=1&name=$([Uri]::EscapeDataString($WelcomeName))"
     $browserArgs = @('--no-first-run','--no-default-browser-check',('--user-data-dir="'+$profile+'"'),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion')
     if ($TestMode) { $browserArgs += @('--headless=new',$url) }
     else { $browserArgs += @('--kiosk',$url,'--edge-kiosk-type=fullscreen') }
@@ -169,9 +169,10 @@ try {
         if($startupCover -and $startupCover.Failure){throw $startupCover.Failure}
         if($prepared -and ($TestMode -or $topmost) -and $startupPhase -eq 'waiting'){$startupPhase='prepare'}
         if($presented -and $startupPhase -eq 'prepare'){
-            if($TestMode){$startupPhase='play'}else{$startupCover.Dismiss();$startupPhase='blending'}
+            if($TestMode){$startupPhase='play'}else{$startupCover.BeginHandoff();$startupPhase='collapsing';Write-LaunchLog 'LIVE ORB collapse begins; web holds invisible logo entry at t=1.72'}
         }
-        if($startupPhase -eq 'blending' -and $startupCover.IsComplete){$startupPhase='play';Write-LaunchLog 'FIRST FRAME browser presented; starting timeline at zero'}
+        if($startupPhase -eq 'collapsing' -and $startupCover.IsCollapsed){$startupPhase='play';Write-LaunchLog ("LIVE ORB collapsed after {0} moving frames; continue with logo" -f $startupCover.MotionFrames)}
+        if($ready -and $startupCover -and -not $startupCover.IsComplete){$startupCover.Dismiss()}
         if ($ready -and $topmost -and -not $codexStarted) { Start-Codex; $codexStarted=$true }
         if ($codexStarted -and $null -eq $handoffOverlay -and -not $TestMode) {
             $handoffOverlay=New-Object CodexWelcome.HandoffOverlay -ArgumentList $window
@@ -199,9 +200,9 @@ try {
                 if ($parts[0] -ne 'POST' -or -not $match.Success -or $match.Groups[1].Value -cne $nonce) { $status='403 Forbidden' }
                 elseif ($path -in @('/prepared','/presented')) {
                     $time=[regex]::Match($uri.Query,'(?:\?|&)time=([^&]+)')
-                    if(-not $time.Success -or $time.Groups[1].Value -ne '0'){$status='409 Conflict'}
-                    elseif($path -eq '/prepared'){$prepared=$true;Write-LaunchLog 'FIRST FRAME web prepared at t=0'}
-                    else{$presented=$true;Write-LaunchLog 'FIRST FRAME web presented at t=0'}
+                    if(-not $time.Success -or $time.Groups[1].Value -ne '1.72'){$status='409 Conflict'}
+                    elseif($path -eq '/prepared'){$prepared=$true;Write-LaunchLog 'FIRST FRAME hidden logo entry prepared at t=1.72'}
+                    else{$presented=$true;Write-LaunchLog 'FIRST FRAME hidden logo entry presented at t=1.72'}
                 }
                 elseif ($path -eq '/ready') { $ready=$true; Write-LaunchLog 'READY' }
                 elseif ($path -eq '/fade') {

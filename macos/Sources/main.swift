@@ -64,14 +64,28 @@ private final class RevealView: NSView {
 
 private final class StartupOrbView: NSView {
     private let orb = CALayer()
+    private let visibleAt = CACurrentMediaTime()
+    private var collapsing = false
     init(frame: NSRect, image: NSImage) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = paper.cgColor
         var rect = NSRect(origin: .zero, size: image.size)
         orb.contents = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        orb.contentsRect = CGRect(x: 0, y: 0, width: 0.125, height: 0.125)
         orb.masksToBounds = true
         layer?.addSublayer(orb)
+        // These are real shader frames; Core Animation plays them independently
+        // of WebKit startup and never swaps a visible static ball for another one.
+        let flow = CAKeyframeAnimation(keyPath: "contentsRect")
+        flow.values = (0...64).map { index in
+            let frame = index % 64
+            return NSValue(rect: NSRect(x: Double(frame % 8) / 8, y: Double(frame / 8) / 8, width: 0.125, height: 0.125))
+        }
+        flow.calculationMode = .discrete
+        flow.duration = 64.0 / 60.0
+        flow.repeatCount = .infinity
+        orb.add(flow, forKey: "cloud-flow")
         let breathing = CAKeyframeAnimation(keyPath: "transform")
         breathing.values = (0...60).map { index in
             let jelly = 0.014 * sin(Double(index) / 60 * .pi * 2)
@@ -91,6 +105,28 @@ private final class StartupOrbView: NSView {
         orb.position = CGPoint(x: bounds.midX, y: bounds.midY)
         orb.cornerRadius = diameter / 2
         CATransaction.commit()
+    }
+    func collapse(speed: Double, completion: @escaping () -> Void) {
+        guard !collapsing else { return }
+        collapsing = true
+        let delay = max(0, 1.5 / speed - (CACurrentMediaTime() - visibleAt))
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self = self else { return }
+            self.orb.removeAnimation(forKey: "breathing")
+            let collapse = CAKeyframeAnimation(keyPath: "transform")
+            collapse.values = (0...32).map { index in
+                let progress = Double(index) / 32
+                let scale = 1 - (pow(2, 10 * progress) - 1) / 1023
+                return NSValue(caTransform3D: CATransform3DMakeScale(scale, scale, 1))
+            }
+            collapse.duration = 0.22 / speed
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.orb.transform = CATransform3DMakeScale(0, 0, 1)
+            CATransaction.commit()
+            self.orb.add(collapse, forKey: "collapse")
+            DispatchQueue.main.asyncAfter(deadline: .now() + collapse.duration + 1.0 / 60) { completion() }
+        }
     }
 }
 
@@ -234,7 +270,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         revealView = RevealView(frame: root.bounds)
         revealView.autoresizingMask = [.width, .height]
         root.addSubview(revealView)
-        guard let imageURL = Bundle.main.url(forResource: "startup-cloud", withExtension: "png"),
+        guard let imageURL = Bundle.main.url(forResource: "orb-motion", withExtension: "png"),
               let image = NSImage(contentsOf: imageURL) else { abort("缺少中央蓝球素材，请重新安装。"); return }
         let nativeOrb = StartupOrbView(frame: root.bounds, image: image)
         nativeOrb.autoresizingMask = [.width, .height]
@@ -245,7 +281,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         NSApp.activate()
         root.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
-        log("CENTRAL ORB native visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; WebKit warming behind it")
+        log("LIVE ORB native flowing elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; WebKit warming behind it")
         if selfTest, let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--native-startup-snapshot=") }) {
             guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(root.bounds.width), pixelsHigh: Int(root.bounds.height), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
                   let context = NSGraphicsContext(bitmapImageRep: bitmap) else { abort("Cannot validate native startup orb"); return }
@@ -265,7 +301,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         // The native centered orb stays responsive during WebKit's cold start.
         root.layoutSubtreeIfNeeded()
         var components = URLComponents(url: docs.appendingPathComponent("animation.html"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName), URLQueryItem(name: "defer-start", value: "1")]
+        components.queryItems = [URLQueryItem(name: "launch", value: "1"), URLQueryItem(name: "play", value: "1"), URLQueryItem(name: "variant", value: variant), URLQueryItem(name: "name", value: welcomeName), URLQueryItem(name: "defer-start", value: "1"), URLQueryItem(name: "native-orb", value: "1")]
         if selfTest { components.queryItems?.append(URLQueryItem(name: "motion-test", value: "1")) }
         // URLSearchParams treats a literal + as a space; preserve plus signs in nicknames.
         components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
@@ -295,7 +331,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
                 }
             }
             self.startupPhase = "presenting"
-            log("CENTRAL ORB web ready; continuing centered orb, no full-screen blue")
+            log("LOGO ENTRY web prepared at t=1.72; native orb stays in motion")
             self.webView.evaluateJavaScript("window.__prepareWelcomeDisplay()") { result, error in
                 if let error = error { self.abort(error.localizedDescription) }
                 else if result as? Bool != true { self.abort("动画首帧未能提交。") }
@@ -313,21 +349,23 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             prepareFirstFrame()
         case "presented":
             guard startupPhase == "presenting", !finishing, !revealing else { return }
-            if selfTest && (payload?["time"] as? Double != 0 || startupCover == nil) {
+            if selfTest && (payload?["time"] as? Double != 1.72 || startupCover == nil) {
                 abort("Startup timeline advanced before its first visible frame"); return
             }
-            startupPhase = "running"
-            let nativeOrb = startupCover
-            startupCover = nil
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.1
-                nativeOrb?.animator().alphaValue = 0
-            }, completionHandler: { nativeOrb?.removeFromSuperview() })
-            log("FIRST FRAME presented; starting timeline at zero")
-            webView.evaluateJavaScript("window.__startWelcome()") { [weak self] result, error in
-                guard let self = self, !self.finishing else { return }
-                if let error = error { self.abort(error.localizedDescription) }
-                else if result as? Bool != true { self.abort("动画未能启动。") }
+            startupPhase = "collapsing"
+            guard let nativeOrb = startupCover else { abort("Native opening orb is missing"); return }
+            nativeOrb.collapse(speed: variant == "full" ? 1 : 1.6) { [weak self] in
+                guard let self = self, !self.finishing, !self.revealing else { return }
+                self.startupPhase = "running"
+                // Both surfaces are now the same paper color. The orb is gone;
+                // continue at the logo entry, without replaying a second orb.
+                self.startupCover?.removeFromSuperview()
+                self.startupCover = nil
+                log("LIVE ORB collapsed; continue with logo at t=1.72")
+                self.webView.evaluateJavaScript("window.__startWelcome()") { result, error in
+                    if let error = error { self.abort(error.localizedDescription) }
+                    else if result as? Bool != true { self.abort("动画未能启动。"); }
+                }
             }
         case "ready":
             if selfTest && payload?["name"] as? String != welcomeName { abort("Personalized name did not reach WebKit"); return }
@@ -340,7 +378,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             let elapsed: Double
             if let clock = webClock, let start = webIntroStarted { elapsed = (clock - start) / 1000 }
             else { elapsed = ProcessInfo.processInfo.systemUptime - introStarted }
-            if selfTest && elapsed < (variant == "full" ? 7.8 : 4.8) {
+            if selfTest && elapsed < (variant == "full" ? 6.1 : 3.7) {
                 abort("Self-test animation completed too early: \(elapsed)s")
                 return
             }

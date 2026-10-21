@@ -1,6 +1,6 @@
 import AppKit
 
-guard CommandLine.arguments.count == 2,
+guard (2...3).contains(CommandLine.arguments.count),
       let data = try? Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])),
       let image = NSBitmapImageRep(data: data),
       image.pixelsWide >= 100, image.pixelsHigh >= 100 else { fatalError("Missing startup first-frame image") }
@@ -17,13 +17,19 @@ for row in 0..<24 {
     }
 }
 precondition(Double(dark)/Double(count) < 0.01, "The startup frame contains a black surface")
-precondition(Double(blue)/Double(count) > 0.008, "The startup frame is missing the blue cloud")
-precondition(Double(opaque)/Double(count) > 0.99, "The startup frame is transparent")
-precondition(Double(blue)/Double(count) < 0.12, "The orb fills too much of the screen")
+let handoff = CommandLine.arguments.contains("--handoff")
 let center = image.colorAt(x: image.pixelsWide/2, y: image.pixelsHigh/2)!.usingColorSpace(.deviceRGB)!
-precondition(center.blueComponent > center.redComponent + 0.03, "Missing centered blue orb")
+if handoff {
+    precondition(blue == 0, "A second orb appears at the logo handoff")
+    precondition(center.redComponent > 0.9 && center.greenComponent > 0.9, "The logo handoff is not paper")
+} else {
+    precondition(Double(blue)/Double(count) > 0.008, "Missing native blue cloud")
+    precondition(Double(blue)/Double(count) < 0.12, "The native orb fills too much of the screen")
+    precondition(center.blueComponent > center.redComponent + 0.03, "Missing centered blue orb")
+}
+precondition(Double(opaque)/Double(count) > 0.99, "The startup frame is transparent")
 for (x, y) in [(0, 0), (image.pixelsWide-1, 0), (0, image.pixelsHigh-1), (image.pixelsWide-1, image.pixelsHigh-1)] {
     let c = image.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
     precondition(c.redComponent > 0.9 && c.greenComponent > 0.9 && c.blueComponent > 0.9, "Full-screen blue startup regressed")
 }
-print("Startup frame: centered small blue orb, paper corners, no black surface PASS (\(image.pixelsWide)x\(image.pixelsHigh))")
+print("Startup frame: native orb / invisible web handoff, no black surface PASS (\(image.pixelsWide)x\(image.pixelsHigh))")
