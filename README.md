@@ -19,7 +19,7 @@ v1.6.0 的粒子通道约 1.6 秒、光点长成球约 0.42 秒，随后快速�
 
 需要已安装 **Microsoft Edge** 和 **Codex 桌面版**。日常使用不需要 Node.js、Python、npm、管理员权限或运行预览服务器。安装器使用 Windows 自带的 .NET Framework 编译一个无控制台的 `CodexWelcome.exe`；桌面快捷方式直接打开它，再由它运行系统 PowerShell 启动动画，不依赖 VBScript 或 Windows Script Host。
 
-1. 下载 [Windows v1.6.1 修复版](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.6.1/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
+1. 下载 [Windows v1.6.2](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.6.2/Codex-Welcome-Windows.zip)，或在本仓库点击 **Code → Download ZIP**，解压到普通文件夹。
 2. 双击 **`Install.cmd`**。
 3. 桌面和开始菜单会出现 **`Codex (5.1s)`**、**`Codex (8.1s)`** 和 **`Codex Settings`** 三个快捷方式。日常使用第一个即可。
 
@@ -89,7 +89,7 @@ Mac 安装包均包含 5.1 秒和 8.1 秒两个应用：
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\launcher\Launch.ps1 -Variant fast
 ```
 
-Windows v1.6.1：Codex 已运行时直接复用现有窗口，只恢复、最大化并激活，不再重复发送应用打开请求，避免触发对话重新定位；未运行时正常启动程序。启动器不发送滚动或编辑快捷键。Mac 当前版本仍为 v1.6.0。启动器使用独立的 Edge 配置目录播放全屏动画，并在结束后只关闭自己的动画窗口。它不读取你的 Chrome/Edge 登录资料。
+Windows 已运行 Codex 时直接复用现有窗口，不再重复发送应用打开请求；未运行时正常启动程序。v1.6.2 为动画专用浏览器加入独占应用模式，用于取消“退出全屏请长按 Esc”的浏览器引导，保持无标题栏和原有离屏预热方式。启动器不发送滚动或编辑快捷键。Mac 当前版本仍为 v1.6.0。启动器使用独立的 Edge 配置目录播放全屏动画，并在结束后只关闭自己的动画窗口。它不读取你的 Chrome/Edge 登录资料。
 
 启动器在动画后方激活桌面应用、退出此前的 F11 全屏状态并最大化窗口，同时预热一个原生透明遮罩。欢迎画面在 7.4–8.1 秒（快速版相应加速）收拢到中心并消失，遮罩承接相同的底色，再以柔和的椭圆形变与羽化边缘向外展开，露出下方真实、可操作的 Codex。交接不截取或存储用户界面截图。窗口大小在动画后方准备好，不会在显露后再突然放大。
 
@@ -198,6 +198,13 @@ Windows 检查包含不传 `ConfigPath`、安装路径含空格、从其他工�
 前端检查需要开发机安装 `playwright`，运行 `node tests/startup.cjs` 验证首帧显示前时间线保持零点，再运行 `node tests/personalization.cjs`；覆盖拉丁/中文、最长名字缩放、输入安全、完整显字和浏览器保存。Mac 的 `bash macos/test.sh` 检查配置保存与验证，`bash macos/smoke.sh` 在原生 WebKit 中用中英文名字播放两种速度。
 
 ## 测试与排错
+
+### Windows 最小化恢复后对话跳到顶部
+
+这项问题**尚未解决**。在本机对照测试中，不播放本项目动画、只通过任务栏恢复 Codex，也会跳到对话顶部；因此 v1.6.1 的“复用现有窗口”不能保证保留滚动位置。相同 Store 包版本 `26.1013.4894.0` 有[公开问题记录 #55612](https://github.com/openai/codex/issues/55612)。该记录是用户报告，不代表已确认内部根因或已有官方修复。
+
+启动器侧的恢复顺序调整、辅助功能“滚动到底部”补偿未通过本机实际验证，已撤回，不作为修复发布。临时可尝试保持 Codex 不最小化，改用 Alt+Tab 切换应用，以避开最小化/恢复这个触发方式；这不能代替应用本身的修复，也不保证消除其他滚动问题。
+
 
 检查资源与 Codex/Edge 检测：
 

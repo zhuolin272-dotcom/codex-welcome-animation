@@ -164,7 +164,7 @@ try {
     else {
         $controlFile=Join-Path $profile 'DevToolsActivePort'
         if(Test-Path -LiteralPath $controlFile){Remove-Item -LiteralPath $controlFile -Force}
-        $browserArgs += @(('--app='+$url),'--window-position=-32000,-32000','--window-size=800,600','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1')
+        $browserArgs += @(('--app='+$url),'--force-app-mode','--window-position=-32000,-32000','--window-size=800,600','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1')
     }
     $windowStyle = if ($TestMode) {'Hidden'} else {'Normal'}
     $browserProcess = Start-Process -FilePath $edge -ArgumentList $browserArgs -PassThru -WindowStyle $windowStyle
