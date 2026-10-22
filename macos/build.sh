@@ -7,6 +7,14 @@ if ! /usr/bin/xcode-select -p >/dev/null 2>&1; then echo 'Install Apple Command 
 BUILD="$HERE/.build"
 PACKAGE="$HERE/dist/Codex-Welcome-macOS"
 mkdir -p "$BUILD" "$PACKAGE"
+# A repeated local build must not repackage a retired, previously generated app.
+LEGACY="$PACKAGE/Codex (8.1s).app"
+if [[ -d "$LEGACY" && ! -L "$LEGACY" ]]; then
+    MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$LEGACY/Contents/Info.plist" 2>/dev/null || true)"
+    [[ "$MANAGED" == true ]] || { echo "Unrelated app in package directory: $LEGACY" >&2; exit 1; }
+    [[ "$LEGACY" == "$HERE/dist/Codex-Welcome-macOS/Codex (8.1s).app" ]] || exit 1
+    rm -rf -- "$LEGACY"
+fi
 SDK="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
 ARCHS="${CW_ARCHS:-arm64 x86_64}"
 BINARIES=()
@@ -31,8 +39,8 @@ for SIZE in 16 32 128 256 512; do
 done
 /usr/bin/iconutil -c icns "$ICONSET" -o "$BUILD/OpenAI.icns"
 
-for MODE in fast full settings; do
-    case "$MODE" in fast) NAME='Codex (5.1s)';; full) NAME='Codex (8.1s)';; settings) NAME='Codex Settings';; esac
+for MODE in fast settings; do
+    case "$MODE" in fast) NAME='Codex (5.1s)';; settings) NAME='Codex Settings';; esac
     APP="$PACKAGE/$NAME.app"
     if [[ -e "$APP" ]]; then
         MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$APP/Contents/Info.plist" 2>/dev/null || true)"
@@ -57,8 +65,8 @@ for MODE in fast full settings; do
 <key>CFBundleName</key><string>$NAME</string>
 <key>CFBundleDisplayName</key><string>$NAME</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.6.0</string>
-<key>CFBundleVersion</key><string>160</string>
+<key>CFBundleShortVersionString</key><string>1.7.0</string>
+<key>CFBundleVersion</key><string>170</string>
 <key>CFBundleIconFile</key><string>OpenAI</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>

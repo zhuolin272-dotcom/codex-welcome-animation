@@ -47,7 +47,7 @@ jobs:
         env:
           CW_ARCHS: ${{ matrix.archs }}
         run: bash macos/build.sh
-      - name: Exercise both speeds in real WKWebView
+      - name: Exercise 5.1s in light and dark WKWebView
         run: bash macos/smoke.sh
       - uses: actions/upload-artifact@v7
         with:

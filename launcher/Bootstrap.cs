@@ -29,7 +29,7 @@ internal static class CodexWelcomeBootstrap {
         StartupCover opening=null;StartupCoverServer bridge=null;Mutex gate=null;bool ownsGate=false;
         try {
             Directory.CreateDirectory(logs);
-            string mode = args.Length > 0 && args[0] == "full" ? "full" : "fast";
+            string mode = "fast";
             File.AppendAllText(log, DateTime.Now.ToString("o") + " ENTRY mode=" + mode + "\r\n");
             string pipeName=null;
             string theme=WelcomeTheme.Resolve(Path.Combine(root,"config.json"));
@@ -37,7 +37,7 @@ internal static class CodexWelcomeBootstrap {
                 bool created;
                 gate=new Mutex(true,windowTest?"Local\\CodexWelcomeBootstrapTest":"Local\\CodexWelcomeBootstrap",out created);
                 if(!created)return 0;ownsGate=true;
-                opening=new StartupCover(Path.Combine(root,"assets\\orb-motion.png"),mode=="full"?1.15:2.0,theme=="dark");
+                opening=new StartupCover(Path.Combine(root,"assets\\orb-motion.png"),2.0,theme=="dark");
                 pipeName="CodexWelcome-"+Guid.NewGuid().ToString("N");
                 bridge=new StartupCoverServer(opening,pipeName);
             }

@@ -45,10 +45,19 @@ if($detected.CodexKind -eq 'app') {
     $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $configPath -Encoding UTF8
 }
 $shell=New-Object -ComObject WScript.Shell
-$shortcutNames=@('Codex (5.1s).lnk','Codex (8.1s).lnk','Codex Settings.lnk')
+$shortcutNames=@('Codex (5.1s).lnk','Codex Settings.lnk')
 $locations=@([Environment]::GetFolderPath('Desktop'),(Join-Path ([Environment]::GetFolderPath('Programs')) 'Codex Welcome'))
 foreach($location in $locations) {
     New-Item -ItemType Directory -Path $location -Force | Out-Null
+    # Migrate the retired shortcut only when it belongs to our marked install.
+    $legacyLink=Join-Path $location 'Codex (8.1s).lnk'
+    if(Test-Path -LiteralPath $legacyLink) {
+        $legacy=$shell.CreateShortcut($legacyLink)
+        $legacyRoot=Split-Path $legacy.TargetPath -Parent
+        if((Split-Path $legacy.TargetPath -Leaf) -eq 'CodexWelcome.exe' -and (Test-Path -LiteralPath (Join-Path $legacyRoot '.codex-welcome-install'))) {
+            Remove-Item -LiteralPath $legacyLink
+        }
+    }
     for($i=0;$i -lt $shortcutNames.Count;$i++) {
         $file=Join-Path $location $shortcutNames[$i]
         if(Test-Path -LiteralPath $file) {
@@ -62,17 +71,21 @@ foreach($location in $locations) {
         $temporaryLink=Join-Path $location ('CodexWelcome-'+[Guid]::NewGuid().ToString('N')+'.lnk')
         $link=$shell.CreateShortcut($temporaryLink)
         $link.TargetPath=$bootstrap
-        $variant=if($i -eq 0){'fast'}elseif($i -eq 1){'full'}else{'--settings'}
+        $variant=if($i -eq 0){'fast'}else{'--settings'}
         $link.Arguments=$variant
         $link.WorkingDirectory=$destination
         $link.IconLocation=(Join-Path $destination 'assets\openai-transparent.ico')+',0'
-        $link.Description=if($i -eq 0){'Codex with the recommended 5.1-second welcome'}elseif($i -eq 1){'Codex with the full 8.1-second welcome'}else{'Change the welcome name for both animation speeds'}
+        $link.Description=if($i -eq 0){'Codex Welcome 5.1s'}else{'Change the welcome name and appearance'}
         $link.WindowStyle=1
         $link.Save()
         Move-Item -LiteralPath $temporaryLink -Destination $file -Force
     }
 }
+foreach($retired in @('Launch-8.1s.cmd','docs\full.html')) {
+    $retiredPath=Join-Path $destination $retired
+    if(Test-Path -LiteralPath $retiredPath -PathType Leaf){Remove-Item -LiteralPath $retiredPath}
+}
 Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class WelcomeShellRefresh{[DllImport("shell32.dll")]public static extern void SHChangeNotify(uint e,uint f,IntPtr a,IntPtr b);}'
 [WelcomeShellRefresh]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)
 Write-Output "Installed: $destination"
-Write-Output 'Desktop and Start Menu shortcuts: Codex (5.1s), Codex (8.1s), Codex Settings.'
+Write-Output 'Desktop and Start Menu shortcuts: Codex (5.1s), Codex Settings.'

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('fast','full')][string]$Variant = 'fast',
+    [ValidateSet('fast')][string]$Variant = 'fast',
     [string]$CodexPath,
     [string]$WelcomeName,
     [switch]$ValidateOnly,
@@ -133,7 +133,7 @@ try {
     }
     if(-not $TestMode -and -not $ValidateOnly){
         if($env:CODEX_WELCOME_OPENING_PIPE){$startupCover=New-Object CodexWelcome.StartupCoverProxy -ArgumentList $env:CODEX_WELCOME_OPENING_PIPE}
-        else{$startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),$(if($Variant -eq 'full'){1.15}else{2.0}),($theme -eq 'dark')}
+        else{$startupCover=New-Object CodexWelcome.StartupCover -ArgumentList (Join-Path $root 'assets\orb-motion.png'),2.0,($theme -eq 'dark')}
         $coverWatch=[Diagnostics.Stopwatch]::StartNew()
         while(-not $startupCover.IsReady -and -not $startupCover.Failure -and $coverWatch.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 10}
         if($startupCover.Failure){throw $startupCover.Failure}
@@ -257,7 +257,7 @@ try {
     if (-not $TestMode -and -not $skipReveal) {
         if (-not $handoffOverlay -or -not $handoffOverlay.IsReady) { throw 'The jelly transition cover was not ready.' }
         Write-LaunchLog 'JELLY REVEAL begin'
-        $handoffOverlay.Reveal($(if($Variant -eq 'full'){.95}else{.8}))
+        $handoffOverlay.Reveal(.8)
         [void][WelcomeWindow]::ShowWindowAsync($window,0)
         Close-AnimationWindow
         $revealWatch=[Diagnostics.Stopwatch]::StartNew()

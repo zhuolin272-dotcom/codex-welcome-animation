@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-foreach($variant in @('fast','full')) {
+foreach($variant in @('fast')) {
     $output=& powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $root 'launcher\Launch.ps1') -Variant $variant -WindowTestMode
     if($LASTEXITCODE -ne 0){throw "Visible window startup failed: $variant"}
     $result=$output | ConvertFrom-Json

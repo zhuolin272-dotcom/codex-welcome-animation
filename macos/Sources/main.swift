@@ -303,7 +303,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         let config = support.appendingPathComponent("config.json")
         let alert = NSAlert()
         alert.messageText = "你希望欢迎动画如何称呼你？"
-        let hint = "1–20 个字符。英文字母连笔书写，中文平滑显字。保存后，5.1s 和 8.1s 两版同时生效。"
+        let hint = "1–20 个字符。英文字母连笔书写，中文平滑显字。保存后，下次播放 5.1s 欢迎动画时生效。"
         alert.informativeText = hint
         let pane = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 96))
         let input = NSTextField(frame: NSRect(x: 0, y: 66, width: 340, height: 28))
@@ -465,7 +465,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             }
             startupPhase = "collapsing"
             guard let nativeOrb = startupCover else { abort("Native opening orb is missing"); return }
-            nativeOrb.collapse(speed: variant == "full" ? 1.15 : 2) { [weak self] in
+            nativeOrb.collapse(speed: 2) { [weak self] in
                 guard let self = self, !self.finishing, !self.revealing else { return }
                 self.startupPhase = "running"
                 // Both surfaces are now the same paper color. The orb is gone;
@@ -489,7 +489,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
             let elapsed: Double
             if let clock = webClock, let start = webIntroStarted { elapsed = (clock - start) / 1000 }
             else { elapsed = ProcessInfo.processInfo.systemUptime - introStarted }
-            if selfTest && elapsed < (variant == "full" ? 5.3 : 3.0) {
+            if selfTest && elapsed < 3.0 {
                 abort("Self-test animation completed too early: \(elapsed)s")
                 return
             }
@@ -584,7 +584,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         revealStarted = ProcessInfo.processInfo.systemUptime
         revealTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            let p = (ProcessInfo.processInfo.systemUptime-self.revealStarted)/(variant == "full" ? 0.95 : 0.8)
+            let p = (ProcessInfo.processInfo.systemUptime-self.revealStarted)/0.8
             self.revealView.progress = min(1,p)
             if p >= 1.06 { self.finish() }
         }

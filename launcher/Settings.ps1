@@ -50,7 +50,7 @@ $nameInput.Location=New-Object Drawing.Point(26,62);$nameInput.Size=New-Object D
 $nameInput.Text='JimmSun'
 if(Test-Path -LiteralPath $ConfigPath){$existing=Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json;if($existing.WelcomeName){$nameInput.Text=$existing.WelcomeName}}
 $hint=New-Object Windows.Forms.Label
-$hint.Text="1–20 个字符。英文字母连笔书写，中文平滑显字。`r`n保存后，5.1s 和 8.1s 两版同时生效。"
+$hint.Text="1–20 个字符。英文字母连笔书写，中文平滑显字。`r`n保存后，下次播放 5.1s 欢迎动画时生效。"
 $hint.Location=New-Object Drawing.Point(24,110);$hint.Size=New-Object Drawing.Size(432,52)
 $themeLabel=New-Object Windows.Forms.Label
 $themeLabel.Text='动画外观';$themeLabel.Location=New-Object Drawing.Point(24,170);$themeLabel.AutoSize=$true

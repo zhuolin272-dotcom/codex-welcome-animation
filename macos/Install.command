@@ -9,7 +9,7 @@ if [[ ! -d "$SOURCE/Codex (5.1s).app" ]]; then
 fi
 DESTINATION="$HOME/Applications"
 mkdir -p "$DESTINATION"
-for APP in 'Codex (5.1s).app' 'Codex (8.1s).app' 'Codex Settings.app'; do
+for APP in 'Codex (5.1s).app' 'Codex Settings.app'; do
     TARGET="$DESTINATION/$APP"
     if [[ -e "$TARGET" ]]; then
         MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$TARGET/Contents/Info.plist" 2>/dev/null || true)"
@@ -26,6 +26,16 @@ for APP in 'Codex (5.1s).app' 'Codex (8.1s).app' 'Codex Settings.app'; do
         echo "保留现有桌面同名项目：$LINK"
     fi
 done
-echo '已安装两种速度及 Codex Settings.app。先打开 Codex Settings 修改欢迎名字。'
+# Retire only our own old app/link in this installer's explicit destination.
+LEGACY="$DESTINATION/Codex (8.1s).app"
+LEGACY_LINK="$HOME/Desktop/Codex (8.1s).app"
+if [[ -d "$LEGACY" && ! -L "$LEGACY" ]]; then
+    MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$LEGACY/Contents/Info.plist" 2>/dev/null || true)"
+    if [[ "$MANAGED" == true && "$LEGACY" == "$HOME/Applications/Codex (8.1s).app" ]]; then
+        if [[ -L "$LEGACY_LINK" && "$(readlink "$LEGACY_LINK")" == "$LEGACY" ]]; then rm -- "$LEGACY_LINK"; fi
+        rm -rf -- "$LEGACY"
+    fi
+fi
+echo '已安装 Codex (5.1s) 及 Codex Settings.app。先打开 Codex Settings 修改欢迎名字。'
 echo '请双击 5.1s 版启动。首次自动最大化需要在系统设置中允许辅助功能。'
 read -r -p '按回车关闭…' _

@@ -92,6 +92,6 @@ def main():
     content=(root/'source/animation.template.html').read_text(encoding='utf8')
     for key,value in {'__MASKS__':''.join(defs),'__LETTERS__':json.dumps(letters),'__GLYPHS__':''.join(shapes),'__LOGO__':logo,'__GREETING_LABEL__':html.escape(args.greeting+' '+args.name,quote=True)}.items():content=content.replace(key,value)
     (root/'docs/animation.html').write_text(content,encoding='utf8')
-    print('Built docs/animation.html; full 8.1s / fast 5.0625s; ink chains:',len(letters))
+    print('Built docs/animation.html; 5.1s final edition; ink chains:',len(letters))
 
 if __name__=='__main__': main()
