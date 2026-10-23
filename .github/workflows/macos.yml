@@ -50,6 +50,7 @@ jobs:
       - name: Exercise 5.1s in light and dark WKWebView
         run: bash macos/smoke.sh
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: Codex-Welcome-macOS-${{ matrix.label }}
           path: |

@@ -36,13 +36,23 @@ import AVFoundation
         precondition(alpha(5, 5, progress: 1) < 5, "Final reveal leaves an opaque corner")
         print("GPU reveal: opaque start, transparent center and clear final corners PASS")
 
-        var ticks = 0, complete = false
-        let timer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in ticks += 1 }
+        var warmupTicks = 0, ticks = 0, started = false, complete = false
         let worker = DesktopPreparation()
-        worker.request(pid: 0, frame: .zero, maximize: false, simulatedDelay: 0.4) { _ in complete = true }
-        let deadline = Date().addingTimeInterval(2)
+        // Start the measured wait only after AppKit's run loop is ticking.
+        // First-use AVFoundation/layer initialization can otherwise consume
+        // the entire unit-test interval before its first timer is delivered.
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in
+            if started { ticks += 1; return }
+            warmupTicks += 1
+            if warmupTicks == 5 {
+                started = true
+                worker.request(pid: 0, frame: .zero, maximize: false, simulatedDelay: 0.4) { _ in complete = true }
+            }
+        }
+        let deadline = Date().addingTimeInterval(5)
         while !complete && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
         timer.invalidate()
+        print("Desktop worker heartbeat: \(ticks) ticks during slow response")
         precondition(complete && ticks >= 8, "Desktop preparation blocked the animation thread")
         print("Desktop preparation: slow response leaves main run loop responsive PASS")
     }

@@ -59,7 +59,7 @@ CW_ARCHS=arm64 bash macos/build.sh
 
 窗口辅助功能请求在后台串行队列处理，且每个 AX 对象有短超时；已运行的 Codex 不再重复发送打开请求。果冻展开使用 GPU 渐变图层动画；正常启动不执行 WebKit 全屏截图读回。更新安装时替换完整已校验应用，避免混入旧版资源。
 
-日志中的 `MOTION native`、`MOTION appkit-writing`、`MOTION web-writing` 和 `MOTION reveal` 包含帧回调频率与最大间隔。它们用于定位卡顿，并不证明每一帧都由屏幕实际呈现。测试额外模拟慢窗口接口响应，检查不会堵塞动画主线程。`macos/.build/motion-light.json` 与 `motion-dark.json` 是自动测试的无用户内容报告。
+日志中的 `MOTION native-video-delivery` 记录独立队列收到的新视频帧；`MOTION appkit-startup` 单独记录 WebKit 冷初始化期间的主线程回调。`MOTION appkit-writing`、`MOTION web-writing` 和 `MOTION reveal` 记录后续阶段的回调频率与最大间隔。这些指标用于定位卡顿，并不证明每一帧都由屏幕实际呈现。测试额外模拟慢窗口接口响应，检查不会堵塞动画主线程。`macos/.build/motion-light.json` 与 `motion-dark.json` 是自动测试的无用户内容报告。
 
 开发者需要重新生成 Mac 影片时可运行 `python tools/build_macos_media.py --ffmpeg /path/to/ffmpeg`。它只使用仓库内的 OpenAI 粒子与蓝球帧，不使用用户视频；日常安装不需要 ffmpeg。
 
