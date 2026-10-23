@@ -220,7 +220,8 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         pacing.start(view: root)
         nativeOrb.startRainFill()
         log("MOVIE native visible elapsed=\(String(format: "%.3f", ProcessInfo.processInfo.systemUptime - started))s; AVPlayerLayer 120 fps source")
-        DispatchQueue.main.async { [weak self] in self?.prepareWebView() }
+        CATransaction.flush()
+        nativeOrb.afterMovingFrames { [weak self] in self?.prepareWebView() }
     }
 
     private func prepareWebView() {
