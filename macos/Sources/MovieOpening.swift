@@ -1,6 +1,56 @@
 import AppKit
 import AVFoundation
 import QuartzCore
+import CoreVideo
+
+// AVPlayer's decoded frame delivery runs independently of AppKit's event loop.
+// Keep this metric separate from the UI callback metric during WebKit startup.
+private final class MovieFrameProbe {
+    private let queue = DispatchQueue(label: "CodexWelcome.movie-frames", qos: .userInitiated)
+    private var timer: DispatchSourceTimer?
+    private var player: AVPlayer?
+    private var item: AVPlayerItem?
+    private var output: AVPlayerItemVideoOutput?
+    private var began = 0.0, previous = 0.0, maximumGap = 0.0
+    private var frames = 0
+    func start(player: AVPlayer) {
+        queue.sync {
+            self.player = player; began = CACurrentMediaTime(); previous = began
+            let source = DispatchSource.makeTimerSource(queue: queue)
+            source.schedule(deadline: .now(), repeating: .milliseconds(8), leeway: .milliseconds(1))
+            source.setEventHandler { [weak self] in self?.sample() }
+            timer = source; source.resume()
+        }
+    }
+    func use(player: AVPlayer, after delay: Double) { queue.asyncAfter(deadline: .now() + delay) { self.player = player } }
+    private func sample() {
+        guard let current = player?.currentItem else { return }
+        if current !== item {
+            if let output = output { item?.remove(output) }
+            let next = AVPlayerItemVideoOutput(pixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange])
+            current.add(next); output = next; item = current
+        }
+        guard let output = output else { return }
+        let now = CACurrentMediaTime(), time = output.itemTime(forHostTime: now)
+        guard output.hasNewPixelBuffer(forItemTime: time),
+              let _ = output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil) else { return }
+        maximumGap = max(maximumGap, now - previous); previous = now; frames += 1
+    }
+    func report() -> [String: Double] {
+        queue.sync {
+            let elapsed = max(0.001, CACurrentMediaTime() - began)
+            return ["frames": Double(frames), "seconds": elapsed, "fps": Double(frames) / elapsed,
+                    "maxGapMs": maximumGap * 1000]
+        }
+    }
+    func stop() {
+        queue.sync {
+            timer?.cancel(); timer = nil
+            if let output = output { item?.remove(output) }
+            output = nil; item = nil; player = nil
+        }
+    }
+}
 
 // Each movie is decoded as a bounded frame stream. No 5120x6400 particle
 // textures or 4096x8192 orb atlas are decoded/uploaded during startup.
@@ -87,6 +137,7 @@ final class StartupOrbView: NSView {
     private var preparing = false
     private var collapsing = false
     private var started = false
+    private let motion = MovieFrameProbe()
     var onReady: (() -> Void)?
     var onFailure: ((String) -> Void)?
     var rainIsActive: Bool { tunnel.layer.opacity > 0 && orb.layer.opacity == 0 }
@@ -109,7 +160,6 @@ final class StartupOrbView: NSView {
         orb.onReady = { [weak self] in self?.checkReady() }
         tunnel.onFailure = { [weak self] message in self?.onFailure?(message) }
         orb.onFailure = { [weak self] message in self?.onFailure?(message) }
-        tunnel.onEnd = { [weak self] in self?.showOrb() }
     }
     required init?(coder: NSCoder) { fatalError("Not supported") }
     private func checkReady() { if tunnel.ready && orb.ready { onReady?() } }
@@ -130,24 +180,38 @@ final class StartupOrbView: NSView {
     func startRainFill() {
         guard !started else { return }; started = true
         visibleAt = CACurrentMediaTime()
+        motion.start(player: tunnel.player)
         tunnel.player.play()
         orb.player.play()
+        showOrb()
     }
 
     private func showOrb() {
         guard orbShownAt == 0 else { return }
-        orbShownAt = CACurrentMediaTime()
+        // Schedule the whole native transition on the render server now. A
+        // later WKWebView initialization cannot delay the 1.6s phase boundary.
+        orbShownAt = visibleAt + 1.6
+        motion.use(player: orb.player, after: 1.6)
         CATransaction.begin(); CATransaction.setDisableActions(true)
         tunnel.layer.opacity = 0
         orb.layer.opacity = 1
         CATransaction.commit()
-        tunnel.player.pause()
+        for (surface, from, to) in [(tunnel.layer, Float(1), Float(0)), (orb.layer, Float(0), Float(1))] {
+            let visibility = CABasicAnimation(keyPath: "opacity")
+            visibility.fromValue = from; visibility.toValue = to
+            visibility.beginTime = orbShownAt; visibility.duration = 0.001
+            visibility.fillMode = .both; visibility.isRemovedOnCompletion = false
+            surface.add(visibility, forKey: "native-phase")
+        }
         let grow = CAKeyframeAnimation(keyPath: "transform")
         grow.values = (0...60).map { index in
             let p = Double(index) / 60, scale = max(0.001, p * p * (3 - 2 * p))
             return NSValue(caTransform3D: CATransform3DMakeScale(scale, scale, 1))
         }
         grow.duration = 0.42
+        grow.beginTime = orbShownAt
+        grow.fillMode = .both
+        grow.isRemovedOnCompletion = false
         orb.layer.add(grow, forKey: "point-to-orb")
     }
 
@@ -180,5 +244,6 @@ final class StartupOrbView: NSView {
             DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration + 1.0 / 120) { completion() }
         }
     }
-    func stop() { tunnel.stop(); orb.stop() }
+    func motionReport() -> [String: Double] { let result = motion.report(); motion.stop(); return result }
+    func stop() { motion.stop(); tunnel.stop(); orb.stop() }
 }

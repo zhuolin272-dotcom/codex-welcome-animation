@@ -56,6 +56,7 @@ window.__timelines=window.__timelines||{};const tl=gsap.timeline({paused:true});
 tl.timeScale(nativeOrb?2:1.6);tl.eventCallback('onComplete',()=>notifyHost('complete'));
 function play(){if(params.has('desktop-preview')){playDesktop();return}fadeSent=false;tl.restart();if(!params.has('motion-test')&&matchMedia('(prefers-reduced-motion: reduce)').matches){if(params.has('launch'))tl.progress(1);else tl.pause(7.3)}}
 const deferredStart=params.has('launch')&&params.has('defer-start');let waitingForPresentation=deferredStart,presentationConfirmed=false,skipAtStart=false;
+window.__warmWelcome=()=>{const previous=tl.time();tl.pause(7.3);requestAnimationFrame(()=>requestAnimationFrame(()=>{tl.pause(previous);render();notifyHost('warmed')}));return true};
 window.__prepareWelcomeDisplay=()=>{if(!waitingForPresentation)return false;render();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!waitingForPresentation)return;presentationConfirmed=true;notifyHost('presented')}));return true};
 window.__startWelcome=()=>{if(!waitingForPresentation||!presentationConfirmed)return false;waitingForPresentation=false;beginMotionMeasure();notifyHost('ready');if(skipAtStart)tl.progress(1);else if(nativeOrb)tl.play(1.72);else play();return true};
 if(params.has('launch')){if(!deferredStart)notifyHost('ready');addEventListener('keydown',e=>{if(e.code==='Escape'){e.preventDefault();if(waitingForPresentation)skipAtStart=true;else tl.progress(1)}})}

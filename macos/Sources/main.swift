@@ -312,6 +312,13 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
         let webClock = payload?["clock"] as? Double
         switch kind {
         case "prepared":
+            startupPhase = "warming-writing"
+            webView.evaluateJavaScript("window.__warmWelcome()") { [weak self] _, error in
+                if let error = error { self?.abort(error.localizedDescription) }
+            }
+        case "warmed":
+            guard startupPhase == "warming-writing" else { return }
+            startupPhase = "loading"
             prepareFirstFrame()
         case "presented":
             guard startupPhase == "presenting", !finishing, !revealing else { return }
@@ -477,7 +484,13 @@ private final class Launcher: NSObject, NSApplicationDelegate, WKScriptMessageHa
 
     private func recordMotion(_ phase: String) {
         let result = pacing.report(); pacing.stop(); motionReports[phase] = result
-        log(String(format: "MOTION %@ fps=%.1f maxGapMs=%.1f", phase, result["fps"] ?? 0, result["maxGapMs"] ?? 0))
+        if phase == "native", let opening = startupCover {
+            motionReports["appkit-startup"] = result
+            motionReports["native"] = opening.motionReport()
+            let media = motionReports["native"]!
+            log(String(format: "MOTION native-video-delivery fps=%.1f maxGapMs=%.1f", media["fps"] ?? 0, media["maxGapMs"] ?? 0))
+        }
+        log(String(format: "MOTION %@ fps=%.1f maxGapMs=%.1f", phase == "native" ? "appkit-startup" : phase, result["fps"] ?? 0, result["maxGapMs"] ?? 0))
     }
 
     private func cleanup() {

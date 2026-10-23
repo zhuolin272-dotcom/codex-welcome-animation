@@ -11,6 +11,8 @@ import AVFoundation
             precondition(abs(track.nominalFrameRate - 120) < 0.1)
             precondition(abs(asset.duration.seconds - duration) < 0.02)
             let generator = AVAssetImageGenerator(asset: asset)
+            generator.requestedTimeToleranceBefore = .zero
+            generator.requestedTimeToleranceAfter = .zero
             let first = try generator.copyCGImage(at: .zero, actualTime: nil)
             let later = try generator.copyCGImage(at: CMTime(seconds: 0.6, preferredTimescale: 600), actualTime: nil)
             precondition((first.dataProvider!.data! as Data) != (later.dataProvider!.data! as Data), "Movie does not move")
