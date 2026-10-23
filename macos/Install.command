@@ -15,8 +15,18 @@ for APP in 'Codex (5.1s).app' 'Codex Settings.app'; do
         MANAGED="$(/usr/libexec/PlistBuddy -c 'Print :CWManaged' "$TARGET/Contents/Info.plist" 2>/dev/null || true)"
         [[ "$MANAGED" == true ]] || { echo "不会覆盖其他应用：$TARGET" >&2; exit 1; }
     fi
-    /usr/bin/ditto "$SOURCE/$APP" "$TARGET"
-    /usr/bin/codesign --verify --strict "$TARGET"
+    # Stage a complete signed bundle; overlay copying can leave old resources
+    # in the app and break strict signature checks after an update.
+    STAGE="$(mktemp -d "$DESTINATION/.CodexWelcome-update.XXXXXX")"
+    [[ "$STAGE" == "$DESTINATION"/.CodexWelcome-update.* && ! -L "$STAGE" ]] || exit 1
+    /usr/bin/ditto "$SOURCE/$APP" "$STAGE/new.app"
+    /usr/bin/codesign --verify --strict "$STAGE/new.app"
+    if [[ -e "$TARGET" ]]; then mv -- "$TARGET" "$STAGE/previous.app"; fi
+    if ! mv -- "$STAGE/new.app" "$TARGET"; then
+        if [[ -d "$STAGE/previous.app" ]]; then mv -- "$STAGE/previous.app" "$TARGET"; fi
+        echo "安装替换失败，旧应用已保留：$TARGET" >&2; exit 1
+    fi
+    rm -rf -- "$STAGE"
     LINK="$HOME/Desktop/$APP"
     if [[ -L "$LINK" && "$(readlink "$LINK")" == "$TARGET" ]]; then
         :

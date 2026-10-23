@@ -11,7 +11,7 @@ for LABEL in 5.1s; do
     "$APP/Contents/MacOS/CodexWelcome" --diagnose
     if [[ "$THEME" == light ]]; then TEST_NAME="Alex+Sun"; else TEST_NAME="小明"; fi
     # These runs verify custom names, never launch Codex or ask for Accessibility permission.
-    /usr/bin/perl -e 'alarm 40; exec @ARGV or die $!;' "$APP/Contents/MacOS/CodexWelcome" --self-test "--theme=$THEME" "--welcome-name=$TEST_NAME" "--startup-snapshot=$HERE/.build/startup-$SUFFIX.png" "--native-startup-snapshot=$HERE/.build/startup-native-$SUFFIX.png"
+    /usr/bin/perl -e 'alarm 40; exec @ARGV or die $!;' "$APP/Contents/MacOS/CodexWelcome" --self-test "--theme=$THEME" "--welcome-name=$TEST_NAME" "--startup-snapshot=$HERE/.build/startup-$SUFFIX.png" "--native-startup-snapshot=$HERE/.build/startup-native-$SUFFIX.png" "--motion-report=$HERE/.build/motion-$THEME.json"
     "$HERE/.build/SnapshotCheck" "$HERE/.build/startup-$SUFFIX.png" --handoff "${FLAGS[@]}"
     "$HERE/.build/SnapshotCheck" "$HERE/.build/startup-native-$SUFFIX.png" "${FLAGS[@]}"
 done

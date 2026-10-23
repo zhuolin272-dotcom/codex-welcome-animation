@@ -7,8 +7,12 @@ html,body{width:100%;height:100%}#intro{position:absolute;left:50%;top:50%;overf
 <svg id="writing" class="art" viewBox="0 0 1920 1080" role="img" aria-label="__GREETING_LABEL__"><defs><linearGradient id="ink" x1="350" y1="400" x2="1560" y2="700" gradientUnits="userSpaceOnUse"><stop stop-color="#c65c4a"/><stop offset=".24" stop-color="#ab702a"/><stop offset=".46" stop-color="#267e80"/><stop offset=".74" stop-color="#4665b8"/><stop offset="1" stop-color="#9254a1"/></linearGradient>__MASKS__</defs><g fill="url(#ink)">__GLYPHS__</g></svg>
 </div></div><script src="glyphs.js"></script><script src="personalize.js"></script><script src="vendor/gsap.min.js"></script><script>
 const params=new URLSearchParams(location.search);const nativeOrb=params.has('native-orb');if(nativeOrb)document.querySelector('.atmosphere').remove();
+const measureMotion=params.has('measure-motion');let motionEpoch=0,motionLast=0,motionLastTime=-1,motionGaps=[];
+function beginMotionMeasure(){if(measureMotion){motionEpoch=motionLast=performance.now();motionLastTime=frameTime;motionGaps=[]}}
+function motionSummary(){const seconds=Math.max(.001,(performance.now()-motionEpoch)/1000);return {frames:motionGaps.length,seconds,fps:motionGaps.length/seconds,maxGapMs:motionGaps.length?Math.max(...motionGaps):0}}
+
 function fitStage(){const scale=Math.min(innerWidth/1920,innerHeight/1080);document.getElementById('intro').style.setProperty('--stage-scale',scale)}fitStage();addEventListener('resize',()=>{fitStage();if(window.__voiceDiagnostics)render()});
-let fadeSent=false;function notifyHost(kind){if(!params.has('launch'))return;const nativeHost=window.webkit?.messageHandlers?.codexWelcome;if(nativeHost){nativeHost.postMessage({kind,clock:performance.now(),name:window.__welcomeName,time:frameTime});return}const token=params.get('token');if(!token)return;fetch('/'+kind+'?token='+encodeURIComponent(token)+'&time='+frameTime,{method:'POST',cache:'no-store'}).catch(()=>{})}
+let fadeSent=false;function notifyHost(kind){if(!params.has('launch'))return;const nativeHost=window.webkit?.messageHandlers?.codexWelcome;if(nativeHost){nativeHost.postMessage({kind,clock:performance.now(),name:window.__welcomeName,time:frameTime,...(kind==='complete'&&measureMotion?{motion:motionSummary()}:{})});return}const token=params.get('token');if(!token)return;fetch('/'+kind+'?token='+encodeURIComponent(token)+'&time='+frameTime,{method:'POST',cache:'no-store'}).catch(()=>{})}
 const canvas=document.getElementById('clouds');const gl=nativeOrb?null:canvas.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
 let drawClouds=()=>{};let shaderReady=false;
 if(gl){
@@ -23,6 +27,8 @@ const program=gl.createProgram();gl.attachShader(program,compile(gl.VERTEX_SHADE
 const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);const a=gl.getAttribLocation(program,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);const timeUniform=gl.getUniformLocation(program,'time');let lastCloudTime=-1;gl.viewport(0,0,canvas.width,canvas.height);drawClouds=t=>{if(t===lastCloudTime)return;lastCloudTime=t;gl.uniform1f(timeUniform,t);gl.drawArrays(gl.TRIANGLES,0,6);canvas.style.opacity='1'};shaderReady=true;
 }
 const orb=document.getElementById('orb'),logo=document.getElementById('logo'),writing=document.getElementById('writing'),scene=document.getElementById('scene'),blur=document.getElementById('vertical-blur');
+if(nativeOrb){orb.style.display='none';orb.style.opacity='0'}
+let lastBlurAmount=-1;
 const requestedName=params.get('name')||(!params.has('launch')?CWPersonalization.saved():null)||'JimmSun';
 let personalized;try{personalized=CWPersonalization.apply(writing,requestedName)}catch(_){personalized=CWPersonalization.apply(writing,'JimmSun')}
 window.__welcomeName=personalized.name;
@@ -35,11 +41,13 @@ let frameTime=0;const state={get time(){return frameTime},set time(value){frameT
 function launchAt(t){if(t<3.22)return {y:0,base:1,sx:1,sy:1};if(t<3.38){const q=smooth((t-3.22)/.16);return {y:20*q,base:1,sx:1+.18*q,sy:1-.28*q}}if(t<3.62){const q=clamp((t-3.38)/.24),fly=1-Math.pow(1-q,3),r=Math.sin(Math.PI*q)*Math.exp(-.9*q);return {y:20-362*fly,base:lerp(1,.28,fly),sx:1.18-.18*q-.38*r,sy:.72+.28*q+.82*r}}const r=Math.max(0,t-3.62),e=Math.exp(-10*r),wave=Math.cos(18*r)+10/18*Math.sin(18*r),j=.12*e*Math.sin(18*r);return {y:-304-38*e*wave,base:.28,sx:1+j,sy:1/(1+j)}}
 function handoffAt(t){const p=clamp((t-7.4)/.7),j=.24*Math.sin(3*Math.PI*p)*Math.sin(Math.PI*p),s=1-smooth(p);return {sx:s*(1+j),sy:s/(1+j),opacity:1-smooth((p-.9)/.1)}}
 function render(){const t=frameTime;
+ if(measureMotion&&motionEpoch&&t!==motionLastTime){const now=performance.now();if(now-motionLast>=2){motionGaps.push(now-motionLast);motionLast=now;motionLastTime=t}}
+ if(!nativeOrb){
  let scale=1;const jelly=.014*Math.sin(t*5);const collapse=clamp((t-1.5)/.22);scale*=1-(Math.pow(2,10*collapse)-1)/1023;
  orb.style.transform=`scale(${Math.max(0,scale*(1+jelly))},${Math.max(0,scale/(1+jelly))})`;orb.style.opacity=t<1.72?1:0;const rim=.006*Math.sin(t*5);orb.style.borderRadius=`${50+rim*100}% ${50-rim*100}% ${50+rim*100}% ${50-rim*100}% / ${50-rim*100}% ${50+rim*100}% ${50-rim*100}% ${50+rim*100}%`;
- if(t<=1.74)drawClouds(t);
+ if(t<=1.74)drawClouds(t);}
  const p=clamp((t-1.72)/1.5),grow=1-Math.pow(1-p,3),angle=-1080*Math.pow(1-p,4),launch=launchAt(t);logo.style.opacity=smooth(p/.12);logo.style.transform=`translateY(${launch.y}px) scale(${grow*launch.base*launch.sx},${grow*launch.base*launch.sy}) rotate(${angle}deg)`;
- const velocity=(launchAt(t+.001).y-launchAt(Math.max(0,t-.001)).y)/.002;blur.setAttribute('stdDeviation',`0 ${Math.min(3.4,Math.abs(velocity)*.0007)}`);
+ const velocity=(launchAt(t+.001).y-launchAt(Math.max(0,t-.001)).y)/.002;const blurAmount=Math.min(3.4,Math.abs(velocity)*.0007);if(Math.abs(blurAmount-lastBlurAmount)>.02){lastBlurAmount=blurAmount;if(blurAmount>.02){blur.setAttribute('stdDeviation',`0 ${blurAmount}`);document.querySelector('#logo g').setAttribute('filter','url(#motion-blur)')}else{document.querySelector('#logo g').removeAttribute('filter')}}
  const r=Math.max(0,t-3.54),rise=94*Math.exp(-9*r)*(Math.cos(13*r)+9/13*Math.sin(13*r));writing.style.transform=`translateY(${rise}px)`;writing.style.opacity=smooth(r/.17);
  const penTime=t-3.62;for(const s of letters){const offset=(s.length+1)*(1-clamp((penTime-s.start)/s.duration));if(offset!==s.lastOffset){s.el.style.strokeDashoffset=offset;s.lastOffset=offset}}
  const ending=handoffAt(t);scene.style.transform=`scale(${ending.sx},${ending.sy})`;scene.style.opacity=ending.opacity;if(t>=7.4&&!fadeSent){fadeSent=true;notifyHost('fade')}
@@ -49,7 +57,7 @@ tl.timeScale(nativeOrb?2:1.6);tl.eventCallback('onComplete',()=>notifyHost('comp
 function play(){if(params.has('desktop-preview')){playDesktop();return}fadeSent=false;tl.restart();if(!params.has('motion-test')&&matchMedia('(prefers-reduced-motion: reduce)').matches){if(params.has('launch'))tl.progress(1);else tl.pause(7.3)}}
 const deferredStart=params.has('launch')&&params.has('defer-start');let waitingForPresentation=deferredStart,presentationConfirmed=false,skipAtStart=false;
 window.__prepareWelcomeDisplay=()=>{if(!waitingForPresentation)return false;render();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!waitingForPresentation)return;presentationConfirmed=true;notifyHost('presented')}));return true};
-window.__startWelcome=()=>{if(!waitingForPresentation||!presentationConfirmed)return false;waitingForPresentation=false;notifyHost('ready');if(skipAtStart)tl.progress(1);else if(nativeOrb)tl.play(1.72);else play();return true};
+window.__startWelcome=()=>{if(!waitingForPresentation||!presentationConfirmed)return false;waitingForPresentation=false;beginMotionMeasure();notifyHost('ready');if(skipAtStart)tl.progress(1);else if(nativeOrb)tl.play(1.72);else play();return true};
 if(params.has('launch')){if(!deferredStart)notifyHost('ready');addEventListener('keydown',e=>{if(e.code==='Escape'){e.preventDefault();if(waitingForPresentation)skipAtStart=true;else tl.progress(1)}})}
 let previewEpoch=0;
 const previewAtlas=new Image();const previewChunks=[previewAtlas,...Array.from({length:5},()=>new Image())];let previewSurface,previewTheme=document.documentElement.classList.contains('dark')?'dark':'light';

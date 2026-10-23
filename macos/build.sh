@@ -22,8 +22,10 @@ for ARCH in $ARCHS; do
     case "$ARCH" in arm64|x86_64) ;; *) echo "Unsupported architecture: $ARCH" >&2; exit 1;; esac
     BINARY="$BUILD/CodexWelcome-$ARCH"
     /usr/bin/xcrun swiftc -swift-version 5 -O -sdk "$SDK" -target "$ARCH-apple-macosx14.0" \
-        -framework AppKit -framework WebKit -framework ApplicationServices -framework QuartzCore \
-        "$HERE/Sources/Geometry.swift" "$HERE/Sources/Preferences.swift" "$HERE/Sources/main.swift" -o "$BINARY"
+        -framework AppKit -framework WebKit -framework ApplicationServices -framework QuartzCore -framework AVFoundation \
+        "$HERE/Sources/Geometry.swift" "$HERE/Sources/Preferences.swift" \
+        "$HERE/Sources/MovieOpening.swift" "$HERE/Sources/DesktopPreparation.swift" \
+        "$HERE/Sources/RevealView.swift" "$HERE/Sources/FramePacing.swift" "$HERE/Sources/main.swift" -o "$BINARY"
     BINARIES+=("$BINARY")
 done
 /usr/bin/lipo -create "${BINARIES[@]}" -output "$BUILD/CodexWelcome"
@@ -47,12 +49,19 @@ for MODE in fast settings; do
         [[ "$MANAGED" == true ]] || { echo "Refusing to overwrite an unrelated app: $APP" >&2; exit 1; }
     fi
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/docs/vendor"
+    # Do not carry atlas resources from a previous local package into this build.
+    for THEME in dark light; do
+        for CHUNK in 00 01 02 03 04 05; do
+            rm -f -- "$APP/Contents/Resources/docs/tunnel-$THEME-$CHUNK.png"
+        done
+    done
+    rm -f -- "$APP/Contents/Resources/orb-motion.png"
     cp "$BUILD/CodexWelcome" "$APP/Contents/MacOS/CodexWelcome"
     chmod 755 "$APP/Contents/MacOS/CodexWelcome"
     cp "$BUILD/OpenAI.icns" "$APP/Contents/Resources/OpenAI.icns"
     if [[ "$MODE" != settings ]]; then
-    cp "$ROOT/docs"/tunnel-*-??.png "$APP/Contents/Resources/docs/"
-    cp "$ROOT/assets/orb-motion.png" "$APP/Contents/Resources/orb-motion.png"
+    mkdir -p "$APP/Contents/Resources/media"
+    cp "$HERE/Resources/"*.mp4 "$HERE/Resources/"*-poster.png "$APP/Contents/Resources/media/"
     cp "$ROOT/docs/animation.html" "$ROOT/docs/orb-cloud.png" "$ROOT/docs/glyphs.js" "$ROOT/docs/personalize.js" "$APP/Contents/Resources/docs/"
     cp "$ROOT/docs/vendor/gsap.min.js" "$APP/Contents/Resources/docs/vendor/gsap.min.js"
     fi
@@ -65,8 +74,8 @@ for MODE in fast settings; do
 <key>CFBundleName</key><string>$NAME</string>
 <key>CFBundleDisplayName</key><string>$NAME</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.7.0</string>
-<key>CFBundleVersion</key><string>170</string>
+<key>CFBundleShortVersionString</key><string>1.8.0</string>
+<key>CFBundleVersion</key><string>180</string>
 <key>CFBundleIconFile</key><string>OpenAI</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>

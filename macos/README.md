@@ -1,6 +1,6 @@
 # Codex Welcome 5.1s · macOS
 
-原生 Mac 欢迎启动器，包含 **Codex (5.1s).app** 与 **Codex Settings.app**。OpenAI 星尘通道、中心蓝球、旋转 Logo、个性化书写和果冻展开均离线播放。使用 AppKit、Core Animation 和 WKWebView，不依赖个人浏览器或预览服务器。
+原生 Mac 欢迎启动器，包含 **Codex (5.1s).app** 与 **Codex Settings.app**。OpenAI 星尘通道、中心蓝球、旋转 Logo、个性化书写和果冻展开均离线播放。使用 AppKit、AVFoundation、Core Animation 和 WKWebView，不依赖个人浏览器或预览服务器。
 
 ## 兼容与验证范围
 
@@ -10,7 +10,7 @@ GitHub Actions 执行原生编译、ad-hoc 签名校验、WebKit 播放、深浅
 
 ## 安装与使用
 
-1. 从 [Releases](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.7.0) 下载适合架构的 Mac 包并解压。
+1. 从 [Releases](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.8.0) 下载适合架构的 Mac 包并解压。
 2. 双击 **Install.command** 安装到 `~/Applications` 并创建桌面入口；也可把两个 `.app` 拖入“应用程序”。安装器更新本项目已标记的应用，保留本机设置，清理本项目已退役入口。
 3. 打开 **Codex Settings.app** 设置名字和外观。
 4. 双击 **Codex (5.1s).app**；动画中按 Esc 可跳过。
@@ -55,6 +55,14 @@ CW_ARCHS=arm64 bash macos/build.sh
 "$HOME/Applications/Codex (5.1s).app/Contents/MacOS/CodexWelcome" --diagnose
 ```
 
+## 性能实现与复测
+
+窗口辅助功能请求在后台串行队列处理，且每个 AX 对象有短超时；已运行的 Codex 不再重复发送打开请求。果冻展开使用 GPU 渐变图层动画；正常启动不执行 WebKit 全屏截图读回。更新安装时替换完整已校验应用，避免混入旧版资源。
+
+日志中的 `MOTION native`、`MOTION appkit-writing`、`MOTION web-writing` 和 `MOTION reveal` 包含帧回调频率与最大间隔。它们用于定位卡顿，并不证明每一帧都由屏幕实际呈现。测试额外模拟慢窗口接口响应，检查不会堵塞动画主线程。`macos/.build/motion-light.json` 与 `motion-dark.json` 是自动测试的无用户内容报告。
+
+开发者需要重新生成 Mac 影片时可运行 `python tools/build_macos_media.py --ffmpeg /path/to/ffmpeg`。它只使用仓库内的 OpenAI 粒子与蓝球帧，不使用用户视频；日常安装不需要 ffmpeg。
+
 ## 日志与卸载
 
 日志为 `~/Library/Logs/CodexWelcome/fast.log`。若自动最大化停住，检查辅助功能权限、Codex 阻塞对话框及是否正在切换系统全屏空间。
@@ -63,6 +71,6 @@ CW_ARCHS=arm64 bash macos/build.sh
 
 ## 素材与分发
 
-粒子源为 1280×800 / 120 fps，蓝球为 512×512 / 120 fps。图集分段预取、释放，实际帧率受屏幕和负载影响。资源随应用打包；WebKit 使用临时数据存储，只导航到包内文件，不读取个人 Safari / Chrome 配置。
+粒子源为 1280×800 / 120 fps，蓝球为 512×512 / 120 fps。Mac 使用由本项目帧生成的 H.264 视频和 AVPlayerLayer，不加载 Windows 的巨型图集。影片先预解码，开场仅显示一次，蓝球可流畅循环等待网页就绪。实际帧率受屏幕和负载影响。资源随应用打包；WebKit 使用临时数据存储，只导航到包内文件，不读取个人 Safari / Chrome 配置。
 
 代码使用 MIT 许可证；Logo、字体和 GSAP 的说明见包内 NOTICE.md 与 Sacramento-OFL.txt。本项目不是 OpenAI 官方启动器。

@@ -8,10 +8,10 @@
 
 ## 下载
 
-- [Windows 安装包](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.7.0/Codex-Welcome-Windows.zip)
-- [macOS Apple Silicon 安装包](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.7.0/Codex-Welcome-macOS-AppleSilicon.zip)：M 系列 Mac。
-- [macOS Universal 安装包](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.7.0/Codex-Welcome-macOS-universal.zip)：包含 Apple Silicon 与 Intel 架构。
-- [发布记录、校验值与 Mac 构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.7.0)
+- [Windows 安装包](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.8.0/Codex-Welcome-Windows.zip)
+- [macOS Apple Silicon 安装包](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.8.0/Codex-Welcome-macOS-AppleSilicon.zip)：M 系列 Mac。
+- [macOS Universal 安装包](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/download/v1.8.0/Codex-Welcome-macOS-universal.zip)：包含 Apple Silicon 与 Intel 架构。
+- [发布记录、校验值与 Mac 构建环境](https://github.com/zhuolin272-dotcom/codex-welcome-animation/releases/tag/v1.8.0)
 
 ## Windows 安装与使用
 
@@ -79,9 +79,9 @@ node tools/serve.mjs
 
 ## 动画与窗口交接
 
-Windows 原生入口先显示粒子通道与蓝球，专用浏览器在屏幕外准备 Logo 与书写画面，完成首帧握手后才显示。Mac 使用 Core Animation 与 WKWebView 完成同一流程。动画居中并适配分辨率与显示缩放，后续节奏沿用已确认的 5.1s 最终版；Codex 冷启动或系统负载可能延长交接等待。
+Windows 原生入口先显示粒子通道与蓝球，专用浏览器在屏幕外准备 Logo 与书写画面，完成首帧握手后才显示。Mac 使用 AVPlayerLayer / Core Animation 与 WKWebView 完成同一流程。动画居中并适配分辨率与显示缩放，后续节奏沿用已确认的 5.1s 最终版；Codex 冷启动或系统负载可能延长交接等待。
 
-粒子源为 **1280×800 / 120 fps**，蓝球为 **512×512 / 120 fps**。六段图集逐段预取并释放，减少内存占用；实际显示帧率取决于屏幕刷新率和负载。深色底色 `#050609`，浅色 `#f7f6f2`。
+粒子源为 **1280×800 / 120 fps**，蓝球为 **512×512 / 120 fps**。Windows 使用分段图集；Mac 使用相同帧编码的本地 H.264 帧流，不在启动时解码或轮换巨型图集。实际显示帧率取决于屏幕刷新率和负载。深色底色 `#050609`，浅色 `#f7f6f2`。
 
 Windows 只使用独立、未登录的 Edge 配置，关闭该配置的翻译提示，并采用独占应用模式处理退出全屏引导。不会读取或修改个人浏览器配置。仅在随机 `127.0.0.1` 端口短暂提供本机文件，结束后关闭，不对局域网开放。
 
@@ -117,6 +117,16 @@ bash macos/smoke.sh
 ```
 
 Windows 上不能编译 AppKit / WebKit。Mac 自动检查记录实际系统环境，并验证 5.1s 动画的深浅色、拉丁名字与中文名字。
+
+## macOS 卡顿修正（v1.8.0）
+
+- 粒子与蓝球使用本地 H.264 / AVPlayerLayer 播放，保留源分辨率与 120 fps，避免巨型 PNG 解码和纹理轮换。
+- Codex 辅助功能窗口查询与调整在独立队列执行，每个 AX 对象使用有限超时；不会占用动画主线程。已运行的 Codex 直接复用。
+- 最终果冻展开使用 CAGradientLayer 的系统合成动画，避免逐帧重画整屏位图；正常启动不再执行完整 WebKit 截图读回。
+- 书写阶段移除没有模糊量时的 SVG 滤镜，原生蓝球交接后不再重复更新隐藏的网页蓝球。
+- 自动测试增加慢窗口响应模拟、媒体帧检查、展开透明度检查，以及原生、WebKit、展开各阶段的帧间隔报告。报告提供实际测量值，不把 120 fps 素材等同于所有 Mac 实机的显示帧率。
+
+Mac 更新采用完整应用分阶段替换，避免旧资源留在新包内影响签名校验。用户录屏不包含在源码或发布包中。
 
 ## 排错与已知限制
 
